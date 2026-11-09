@@ -1,0 +1,20 @@
+# .mailmap
+# Mapea las identidades de commit (nombre/email) de cada integrante a un
+# nombre canónico, para que `git shortlog -sne` y herramientas similares no
+# dupliquen personas por variaciones de nombre o de email.
+#
+# Formato: Nombre canónico <mail canónico> Nombre alias <mail alias>
+# (ver `git help mailmap` para variantes con alias)
+#
+# Emails cargados por las personas (el agente no los inventa). El de
+# Isabella quedó marcado como pendiente de confirmación (ver más abajo).
+
+Eliseche, Martín <tinchoeliseche@gmail.com> MartinEliseche <tinchoeliseche@gmail.com>
+Petosa Ayala, Franco <franco.petosa15@gmail.com> Franco Petosa Ayala <84604362+FrancoPetosa99@users.noreply.github.com>
+
+# Mail a confirmar por Isabella (corregido de un typo ".con" a ".com" al
+# recibir el dato; confirmar antes de su primer commit):
+Bresciani, Isabella <brescianisa@gmail.com>
+
+Gutierrez Mora, Agustín <agugutierrezz27@gmail.com>
+Kalpin, Sofía <sofikalpin@hotmail.com>
