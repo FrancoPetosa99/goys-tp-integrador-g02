@@ -1,0 +1,58 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(git shortlog:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(docker compose config:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker compose up:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker compose restart:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker images:*)",
+      "Bash(docker exec:*)"
+    ],
+    "ask": [
+      "Bash(docker compose down:*)",
+      "Bash(docker compose rm:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker kill:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker network:*)",
+      "Bash(docker volume:*)",
+      "Bash(docker system:*)",
+      "Bash(docker pull:*)"
+    ],
+    "deny": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git reset:*)",
+      "Bash(git restore:*)",
+      "Bash(git stash:*)",
+      "Bash(git clean:*)",
+      "Bash(git rm:*)",
+      "Bash(git mv:*)",
+      "Bash(git tag:*)",
+      "Bash(git config --global:*)",
+      "Bash(git config --system:*)",
+      "Bash(git config --local:*)",
+      "Bash(git config --unset:*)",
+      "Bash(sudo:*)",
+      "Read(./.env)",
+      "Read(./**/.env)"
+    ]
+  }
+}
