@@ -15,6 +15,23 @@ Thumbs.db
 *.secret
 credentials*
 *credenciales*
+.claude/settings.local.json
+
+# Entornos virtuales y dependencias
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+
+# Datos y artefactos del laboratorio (Docker Compose, PostgreSQL, k6)
+pgdata/
+*-data/
+k6-results/
+*.k6.json
+backups/*.sql
+backups/*.dump
+backups/*.gz
 
 # Temporales / backup
 *.tmp
