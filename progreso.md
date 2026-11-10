@@ -30,6 +30,7 @@
 | 09/11 |  Fase 1: entrypoint y firewall del router (FORWARD DROP, VIP por DNAT, modo FIREWALL_MODE para diagnóstico) | Franco | feat(router): agregar entrypoint y firewall idempotente del router | 
 | 09/11 |  Fase 1: diagrama de topología (6 redes, flujos permitidos, tabla de reglas de firewall) | Isabella | docs(diagramas): agregar diagrama de topología de red fase 1 | 
 | 09/11 |  Fase 1: capturas de contenedores arriba, ping entre segmentos y conexión bloqueada a 5432 | Agustín | docs(capturas): agregar evidencias de contenedores, ping entre segmentos y bloqueo de fase 1 | 
+| 09/11 |  Fase 1: captura de ping fallido a 1.1.1.1 desde un nodo del lab | Sofía | docs(capturas): agregar evidencia de falta de salida a Internet fase 1 | 
 
 ## 🚧 Pendientes / decisiones
 
