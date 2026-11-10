@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: "DB Scale Lab"
+    orgId: 1
+    folder: ""
+    type: file
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards

@@ -49,5 +49,27 @@ Relevado en solo lectura el 9/11/2026. Todo lo de abajo está **verificado**, sa
 | Publicación de puertos (`ports: "3000:80"`) en una red con `nat-unprotected` + `enable_ip_masquerade=false` | Funciona: `nc -zv -w2 localhost 3000` responde (fase 1, A1.8). |
 | Salida a Internet desde nodos en esas redes | **No hay**: `ping -c1 -W2 1.1.1.1` falla desde `t-clientes`, `t-db` y el propio router (fase 1, A1.6). |
 
+## Rutas por defecto en contenedores sin privilegios (fase 2, motivó D5)
+| Imagen | Tiene `ip` | Usuario por defecto | `NET_ADMIN` + `ip route replace` |
+|---|---|---|---|
+| `postgres:17.11` | No | `postgres` | — (no aplica, además nunca se le da `NET_ADMIN`) |
+| `python:3.12.16-slim` (base de `app/`) | No | configurable (`appuser`, no root) | — (no aplica) |
+| `prom/prometheus:v3.16.0` | Sí | `nobody` (65534) | **Falla**: `Operation not permitted` |
+| `prometheuscommunity/postgres-exporter:v0.20.1` | Sí | `nobody` (65534) | **Falla**: `Operation not permitted` |
+| `grafana/grafana:13.3.0` | Sí | `472` (`grafana`) | **Falla**: `Operation not permitted` |
+| `grafana/k6:2.3.0` | Sí | `12345` (`k6`) | **Falla**: `Operation not permitted` |
+| `gcr.io/cadvisor/cadvisor:v0.55.1` | Sí | `root` (0) | **Funciona** |
+
+Probado con un contenedor real y una red Docker descartable (misma config de `driver_opts` que el laboratorio): `cap_add: NET_ADMIN` no alcanza si el proceso no corre como root, aunque el binario `ip` esté presente. Consecuencia para D5: sidecar `alpine:3.24.4` (que sí corre como root) para todo nodo que cruce de subred y no sea `cadvisor`.
+
+## cAdvisor sin `privileged: true` (fase 2, A2.6)
+Con los mounts de solo lectura estándar (`/rootfs`, `/var/run`, `/sys`, `/var/lib/docker`, `/dev/disk`, `/var/run/docker.sock`) y `-docker_only=true`, cAdvisor en Docker Engine 29.9.2 (cgroup v2, overlayfs) **etiqueta correctamente por `container_name` real** (`container_cpu_usage_seconds_total{name="dbscale-pg-primary"}`, etc.) sin necesitar `privileged: true`.
+
+## k6 2.3.0: nombre del output de Prometheus (D14)
+`k6 run -o <inválido>` devuelve la lista de outputs soportados; incluye `experimental-prometheus-rw` (variable de entorno `K6_PROMETHEUS_RW_SERVER_URL`), sin cambios respecto a versiones anteriores de k6.
+
+## `.env` fuera de `demo/` (D19)
+`docker compose` resuelve `.env` según el directorio del **archivo compose**, no el directorio desde el que se invoca el comando. Probado con una red/compose descartable: un `.env` en el directorio padre de donde vive `docker-compose.yml` no se carga aunque la terminal esté parada ahí. Como `.env` vive en la raíz del repo, todo comando debe incluir `--env-file ../.env` (invocando desde `demo/`).
+
 ## Pendiente de verificar
 - Que la laptop Linux del grupo se comporte igual (versión de Docker, `br_netfilter`).

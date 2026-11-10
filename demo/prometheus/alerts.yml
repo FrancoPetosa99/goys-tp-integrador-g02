@@ -1,0 +1,11 @@
+groups:
+  - name: db-scale-lab
+    rules:
+      - alert: PrimarioCaido
+        expr: up{job="pg-exporter-p"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "El primario de PostgreSQL no responde"
+          description: "pg-exporter-p no pudo scrapear pg-primary durante más de 30s (up==0)."
