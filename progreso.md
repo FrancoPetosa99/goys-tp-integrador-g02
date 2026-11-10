@@ -35,6 +35,7 @@
 | 10/11 |  Fase 2: .env.example ampliado (host y puerto de la base, pools, workers y límites de CPU y memoria); firewall.sh no cambió porque las reglas de la fase 1 ya alcanzaban | Franco | feat(env) + docs(progreso) | 
 | 10/11 |  Fase 2: esquema categories/products, 4 roles de mínimo privilegio, seed de 500.000 productos, pg_hba.conf y postgresql.conf finales con la replicación ya preparada | Isabella | feat(postgres) x2 | 
 | 10/11 |  Fase 2: prometheus.yml (4 targets), alerta PrimarioCaido, datasource y dashboard "DB Scale Lab" provisionados (10 paneles) | Agustín | feat(prometheus) + feat(grafana) | 
+| 10/11 |  Fase 2: capturas de targets en UP, línea base de k6 y dashboard de Grafana con carga en curso (2 partes) | Sofía | docs(capturas) x2 | 
 
 ## 🚧 Pendientes / decisiones
 
