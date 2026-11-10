@@ -27,6 +27,7 @@
 |-------|-------------|-------|--------|
 | 09/11 | Fase 0 — Preparación del repo: `.gitignore`, `.env.example`, `.mailmap`, `progreso.md` y `README.md` redactados (reparto por archivo en `.ai/plan/reparto-commits.md`) | Todo el grupo | _(completar al commitear)_ | 
 | 09/11 |  Fase 1: compose de red segmentada (6 redes, driver_opts D3) y Dockerfile del router (alpine + iptables) | Martín | feat(demo): agregar compose de red segmentada y Dockerfile del router | 
+| 09/11 |  Fase 1: entrypoint y firewall del router (FORWARD DROP, VIP por DNAT, modo FIREWALL_MODE para diagnóstico) | Franco | feat(router): agregar entrypoint y firewall idempotente del router | 
 
 ## 🚧 Pendientes / decisiones
 
