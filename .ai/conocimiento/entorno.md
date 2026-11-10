@@ -7,7 +7,7 @@ Relevado en solo lectura el 9/11/2026. Todo lo de abajo está **verificado**, sa
 - Sin `.wslconfig` (sin límites explícitos).
 - El agente **no tiene sudo**.
 - Git 2.53.0. Remoto `origin` por HTTPS, sin `credential.helper`. Identidad global: `MartinEliseche <tinchoeliseche@gmail.com>`. Existe un par de claves SSH sin uso en este remoto.
-- Todos trabajan sobre `main`.
+- Desde la Fase 1, cada fase se trabaja en su propia rama (creada desde `main`, pusheada a `origin`) que se mergea a `main` al cerrarla.
 
 ## Docker
 - Docker Engine 29.9.2 nativo en WSL2 (no Docker Desktop), Compose v5.6.1, cgroup v2, storage `overlayfs`.
@@ -46,8 +46,8 @@ Relevado en solo lectura el 9/11/2026. Todo lo de abajo está **verificado**, sa
 | Ídem con `gateway_mode_ipv4=routed` | Funciona. |
 | `iptables -A FORWARD -j DROP` dentro del router (con la variante que funciona) | Corta el tráfico; al quitarla vuelve. El firewall del router tiene control real. |
 | cAdvisor | Corre y reporta CPU por contenedor. |
+| Publicación de puertos (`ports: "3000:80"`) en una red con `nat-unprotected` + `enable_ip_masquerade=false` | Funciona: `nc -zv -w2 localhost 3000` responde (fase 1, A1.8). |
+| Salida a Internet desde nodos en esas redes | **No hay**: `ping -c1 -W2 1.1.1.1` falla desde `t-clientes`, `t-db` y el propio router (fase 1, A1.6). |
 
 ## Pendiente de verificar
-- Publicación de puertos (3000, 9091) desde redes con `nat-unprotected` + `enable_ip_masquerade=false`.
-- Que esas redes **no tengan salida a Internet**.
 - Que la laptop Linux del grupo se comporte igual (versión de Docker, `br_netfilter`).

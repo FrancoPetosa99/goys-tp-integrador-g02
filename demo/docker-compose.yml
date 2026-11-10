@@ -1,0 +1,150 @@
+name: dbscale
+
+x-net-driver-opts: &net-driver-opts
+  driver_opts:
+    com.docker.network.bridge.gateway_mode_ipv4: nat-unprotected
+    com.docker.network.bridge.enable_ip_masquerade: "false"
+
+x-test-node: &test-node
+  image: alpine:3.24.4
+  cap_add:
+    - NET_ADMIN
+  profiles:
+    - test-red
+
+networks:
+  net-clientes:
+    <<: *net-driver-opts
+    ipam:
+      config:
+        - subnet: 10.50.1.0/24
+          gateway: 10.50.1.253
+  net-app:
+    <<: *net-driver-opts
+    ipam:
+      config:
+        - subnet: 10.10.1.0/24
+          gateway: 10.10.1.253
+  net-db-primaria:
+    <<: *net-driver-opts
+    ipam:
+      config:
+        - subnet: 10.20.1.0/24
+          gateway: 10.20.1.253
+  net-db-local:
+    <<: *net-driver-opts
+    ipam:
+      config:
+        - subnet: 10.30.1.0/24
+          gateway: 10.30.1.253
+  net-db-remota:
+    <<: *net-driver-opts
+    ipam:
+      config:
+        - subnet: 10.31.1.0/24
+          gateway: 10.31.1.253
+  net-mon:
+    <<: *net-driver-opts
+    ipam:
+      config:
+        - subnet: 10.40.1.0/24
+          gateway: 10.40.1.253
+
+services:
+  router:
+    build:
+      context: ./router
+    image: dbscale/router:0.1.0
+    container_name: dbscale-router
+    hostname: router
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.rp_filter=0
+      - net.ipv4.conf.default.rp_filter=0
+    environment:
+      - FIREWALL_MODE=strict
+    networks:
+      net-clientes:
+        ipv4_address: 10.50.1.254
+      net-app:
+        ipv4_address: 10.10.1.254
+      net-db-primaria:
+        ipv4_address: 10.20.1.254
+      net-db-local:
+        ipv4_address: 10.30.1.254
+      net-db-remota:
+        ipv4_address: 10.31.1.254
+      net-mon:
+        ipv4_address: 10.40.1.254
+    restart: unless-stopped
+
+  # --- Nodos de prueba (perfil test-red): verifican el ruteo y el firewall
+  # con las IPs finales de los nodos reales, antes de que existan esos nodos. ---
+
+  t-clientes:
+    <<: *test-node
+    container_name: dbscale-t-clientes
+    hostname: t-clientes
+    networks:
+      net-clientes:
+        ipv4_address: 10.50.1.10
+    command: sh -c "ip route replace default via 10.50.1.254 && sleep infinity"
+
+  t-app:
+    <<: *test-node
+    container_name: dbscale-t-app
+    hostname: t-app
+    networks:
+      net-app:
+        ipv4_address: 10.10.1.10
+    command: sh -c "ip route replace default via 10.10.1.254 && while true; do nc -l -p 8000; done"
+
+  t-db:
+    <<: *test-node
+    container_name: dbscale-t-db
+    hostname: t-db
+    networks:
+      net-db-primaria:
+        ipv4_address: 10.20.1.10
+    command: sh -c "ip route replace default via 10.20.1.254 && while true; do nc -l -p 5432; done"
+
+  t-replica1:
+    <<: *test-node
+    container_name: dbscale-t-replica1
+    hostname: t-replica1
+    networks:
+      net-db-local:
+        ipv4_address: 10.30.1.10
+    command: sh -c "ip route replace default via 10.30.1.254 && while true; do nc -l -p 5432; done"
+
+  t-replica2:
+    <<: *test-node
+    container_name: dbscale-t-replica2
+    hostname: t-replica2
+    networks:
+      net-db-remota:
+        ipv4_address: 10.31.1.10
+    command: sh -c "ip route replace default via 10.31.1.254 && while true; do nc -l -p 5432; done"
+
+  t-prometheus:
+    <<: *test-node
+    container_name: dbscale-t-prometheus
+    hostname: t-prometheus
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.20
+    command: sh -c "ip route replace default via 10.40.1.254 && while true; do nc -l -p 9090; done"
+
+  # Solo para A1.8 (publicación de puertos): no representa un nodo real del laboratorio.
+  t-ui:
+    <<: *test-node
+    container_name: dbscale-t-ui
+    hostname: t-ui
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.99
+    ports:
+      - "3000:80"
+    command: sh -c "ip route replace default via 10.40.1.254 && while true; do nc -l -p 80; done"
