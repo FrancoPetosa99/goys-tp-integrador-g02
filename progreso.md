@@ -32,6 +32,7 @@
 | 09/11 |  Fase 1: capturas de contenedores arriba, ping entre segmentos y conexión bloqueada a 5432 | Agustín | docs(capturas): agregar evidencias de contenedores, ping entre segmentos y bloqueo de fase 1 | 
 | 09/11 |  Fase 1: captura de ping fallido a 1.1.1.1 desde un nodo del lab | Sofía | docs(capturas): agregar evidencia de falta de salida a Internet fase 1 | 
 | 10/11 |  Fase 2: API FastAPI (8 endpoints, health y metrics), compose ampliado con sidecars de ruteo, plantilla de PR y decisiones actualizadas | Martín | feat(app) + feat(demo) | 
+| 10/11 |  Fase 2: .env.example ampliado (host y puerto de la base, pools, workers y límites de CPU y memoria); firewall.sh no cambió porque las reglas de la fase 1 ya alcanzaban | Franco | feat(env) + docs(progreso) | 
 
 ## 🚧 Pendientes / decisiones
 
