@@ -12,6 +12,19 @@ x-test-node: &test-node
   profiles:
     - test-red
 
+# Sidecar de ruteo (D5): un nodo real sin "ip" o que no corre como root (ver
+# decisiones-tecnicas.md) no puede fijar su propia ruta por defecto, ni con
+# NET_ADMIN. El sidecar comparte el namespace de red del nodo
+# (network_mode: "service:<nodo>") y solo hace "ip route replace", como root,
+# dentro de esa misma pila de red. Nunca se le da NET_ADMIN al nodo real.
+x-sidecar: &sidecar
+  image: alpine:3.24.4
+  cap_add:
+    - NET_ADMIN
+  restart: unless-stopped
+  cpus: "${SIDECAR_CPUS}"
+  mem_limit: ${SIDECAR_MEM}
+
 networks:
   net-clientes:
     <<: *net-driver-opts
@@ -49,6 +62,11 @@ networks:
       config:
         - subnet: 10.40.1.0/24
           gateway: 10.40.1.253
+
+volumes:
+  pg-primary-data:
+  prometheus-data:
+  grafana-data:
 
 services:
   router:
@@ -148,3 +166,225 @@ services:
     ports:
       - "3000:80"
     command: sh -c "ip route replace default via 10.40.1.254 && while true; do nc -l -p 80; done"
+
+  # ======================================================================
+  # Fase 2 — Base única, app y monitoreo
+  # ======================================================================
+
+  pg-primary:
+    image: postgres:17.11
+    container_name: dbscale-pg-primary
+    hostname: pg-primary
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${PG_SUPERUSER_USER}
+      - POSTGRES_PASSWORD=${PG_SUPERUSER_PASSWORD}
+      - APP_WRITER_USER=${APP_WRITER_USER}
+      - APP_WRITER_PASSWORD=${APP_WRITER_PASSWORD}
+      - APP_READER_USER=${APP_READER_USER}
+      - APP_READER_PASSWORD=${APP_READER_PASSWORD}
+      - REPLICATOR_USER=${REPLICATOR_USER}
+      - REPLICATOR_PASSWORD=${REPLICATOR_PASSWORD}
+      - MONITOR_USER=${MONITOR_USER}
+      - MONITOR_PASSWORD=${MONITOR_PASSWORD}
+    command:
+      - "postgres"
+      - "-c"
+      - "config_file=/etc/postgresql/postgresql.conf"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/roles.sql:/docker-entrypoint-initdb.d/roles.sql:ro
+      - ./postgres/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - pg-primary-data:/var/lib/postgresql/data
+    networks:
+      net-db-primaria:
+        ipv4_address: 10.20.1.10
+    cpus: "${POSTGRES_CPUS}"
+    mem_limit: ${POSTGRES_MEM}
+    restart: unless-stopped
+
+  # Nunca NET_ADMIN en pg-primary (D5): el sidecar lo tiene en su lugar.
+  sc-pg-primary:
+    <<: *sidecar
+    container_name: dbscale-sc-pg-primary
+    network_mode: "service:pg-primary"
+    depends_on:
+      - pg-primary
+    command: sh -c "ip route replace default via 10.20.1.254 && sleep infinity"
+
+  api:
+    build:
+      context: ../app
+    image: dbscale/api:0.1.0
+    container_name: dbscale-api
+    hostname: api
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - WRITER_DB_HOST=${WRITER_DB_HOST}
+      - WRITER_DB_PORT=${WRITER_DB_PORT}
+      - WRITER_POOL_MIN=${WRITER_POOL_MIN}
+      - WRITER_POOL_MAX=${WRITER_POOL_MAX}
+      - APP_WRITER_USER=${APP_WRITER_USER}
+      - APP_WRITER_PASSWORD=${APP_WRITER_PASSWORD}
+      - READ_DB_HOSTS=${READ_DB_HOSTS}
+      - READER_DB_PORT=${READER_DB_PORT}
+      - READER_POOL_MIN=${READER_POOL_MIN}
+      - READER_POOL_MAX=${READER_POOL_MAX}
+      - APP_READER_USER=${APP_READER_USER}
+      - APP_READER_PASSWORD=${APP_READER_PASSWORD}
+      - READ_FALLBACK_TO_PRIMARY=${READ_FALLBACK_TO_PRIMARY}
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS}
+    networks:
+      net-app:
+        ipv4_address: 10.10.1.10
+    cpus: "${API_CPUS}"
+    mem_limit: ${API_MEM}
+    restart: unless-stopped
+    depends_on:
+      - pg-primary
+
+  sc-api:
+    <<: *sidecar
+    container_name: dbscale-sc-api
+    network_mode: "service:api"
+    depends_on:
+      - api
+    command: sh -c "ip route replace default via 10.10.1.254 && sleep infinity"
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    container_name: dbscale-prometheus
+    hostname: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.20
+    ports:
+      - "9091:9090"
+    cpus: "${PROMETHEUS_CPUS}"
+    mem_limit: ${PROMETHEUS_MEM}
+    restart: unless-stopped
+
+  sc-prometheus:
+    <<: *sidecar
+    container_name: dbscale-sc-prometheus
+    network_mode: "service:prometheus"
+    depends_on:
+      - prometheus
+    command: sh -c "ip route replace default via 10.40.1.254 && sleep infinity"
+
+  # Grafana solo habla con prometheus dentro de net-mon (mismo segmento, sin
+  # pasar por el router): no necesita ruta por defecto ni sidecar (D5).
+  grafana:
+    image: grafana/grafana:13.3.0
+    container_name: dbscale-grafana
+    hostname: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.21
+    ports:
+      - "3000:3000"
+    cpus: "${GRAFANA_CPUS}"
+    mem_limit: ${GRAFANA_MEM}
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  pg-exporter-p:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: dbscale-pg-exporter-p
+    hostname: pg-exporter-p
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${MONITOR_USER}:${MONITOR_PASSWORD}@10.20.1.10:5432/${POSTGRES_DB}?sslmode=disable
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.31
+    cpus: "${EXPORTER_CPUS}"
+    mem_limit: ${EXPORTER_MEM}
+    restart: unless-stopped
+    depends_on:
+      - pg-primary
+
+  sc-pg-exporter-p:
+    <<: *sidecar
+    container_name: dbscale-sc-pg-exporter-p
+    network_mode: "service:pg-exporter-p"
+    depends_on:
+      - pg-exporter-p
+    command: sh -c "ip route replace default via 10.40.1.254 && sleep infinity"
+
+  # cAdvisor solo habla con prometheus dentro de net-mon: no necesita ruta
+  # por defecto ni sidecar (D5). Corre como root (confirmado) y no inicia
+  # tráfico cruzado de subred en esta fase.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    container_name: dbscale-cadvisor
+    hostname: cadvisor
+    command:
+      - "-docker_only=true"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.40
+    cpus: "${CADVISOR_CPUS}"
+    mem_limit: ${CADVISOR_MEM}
+    restart: unless-stopped
+    # privileged: true  # activar y justificar acá y en decisiones-tecnicas.md
+    # si los mounts de solo lectura no alcanzan para leer cgroups/overlayfs.
+
+  # --- k6 (perfil "carga"): el servicio queda definido ya en fase 2 porque
+  # A2.5 necesita una prueba corta real; el conjunto de escenarios de k6
+  # (demo/k6/*.js) es entregable de la fase 3. Se mantiene arriba con
+  # "sleep infinity" (igual que los nodos de prueba de fase 1) y las corridas
+  # van por "docker compose exec -T k6 k6 run ...", nunca por "run" (que
+  # crearía un contenedor nuevo sin el sidecar ya aplicado). ---
+  k6:
+    image: grafana/k6:2.3.0
+    container_name: dbscale-k6
+    hostname: k6
+    profiles:
+      - carga
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      - K6_PROMETHEUS_RW_SERVER_URL=http://10.40.1.20:9090/api/v1/write
+    networks:
+      net-clientes:
+        ipv4_address: 10.50.1.10
+    cpus: "${K6_CPUS}"
+    mem_limit: ${K6_MEM}
+    restart: unless-stopped
+
+  sc-k6:
+    <<: *sidecar
+    container_name: dbscale-sc-k6
+    profiles:
+      - carga
+    network_mode: "service:k6"
+    depends_on:
+      - k6
+    command: sh -c "ip route replace default via 10.50.1.254 && sleep infinity"
