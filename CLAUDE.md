@@ -13,7 +13,7 @@ Proyecto: **DB Scale Lab**, laboratorio de escalado de PostgreSQL con réplicas 
 
 ### Git
 - **Nunca** ejecutes `git add`, `commit`, `push`, `pull`, `fetch`, `merge`, `rebase`, `checkout`, `switch`, `reset`, `restore`, `stash`, `clean`, `rm`, `mv`, ni `git config` que escriba. Solo lectura: `status`, `log`, `diff`, `branch`, `shortlog`.
-- Los commits los hacen las **5 personas**, cada una con su identidad, trabajando directo sobre `main` en esta única máquina. Tu rol es indicar, al cerrar cada fase, qué archivos sube cada una (`/cerrar-fase`).
+- Los commits los hacen las **5 personas**, cada una con su identidad, en esta única máquina. Desde la Fase 1, cada fase vive en su propia rama (p. ej. `fase-1-red-router`), creada desde `main` y ya enlazada a `origin`; al cerrarla se mergea a `main` con **merge commit** (nunca squash). Tu rol es indicar, al cerrar cada fase, qué archivos sube cada una (`/cerrar-fase`).
 - Nadie commitea por otro. Tu resumen por archivo existe para que cada persona pueda **explicar** lo que sube.
 
 ### Secretos
@@ -36,6 +36,7 @@ Proyecto: **DB Scale Lab**, laboratorio de escalado de PostgreSQL con réplicas 
 
 ### Forma de trabajo
 - **Una fase por vez.** Usá la lista de tareas. Al terminar corré `/cerrar-fase N` y **detenete**: no avances hasta que el usuario confirme que los 5 commits están pusheados.
+- La rama de la fase actual ya existe y está pusheada; no crear una nueva si ya está. Antes de cerrar una fase, confirmá con `git branch --show-current` que no estás en `main`.
 - Cada persona sube solo los archivos de su fila en `.ai/plan/reparto-commits.md`.
 - Antes de cerrar una fase, invocá al subagente `revisor-pre-commit`.
 - Idioma: español. Mensajes de commit sugeridos: Conventional Commits en español (`feat(demo): …`).

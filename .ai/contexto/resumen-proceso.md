@@ -11,7 +11,7 @@ Medir cómo escala una base de datos al pasar de una única instancia de Postgre
 ## 3. Flujo
 1. Fases 0 a 6 (ver `plan/fases.md`). Una por vez.
 2. El agente construye y verifica; al cerrar la fase indica qué sube cada persona.
-3. Cada persona commitea sus archivos en `main` con su identidad y hace push.
+3. Cada persona commitea sus archivos en la **rama de la fase actual** (ya creada y pusheada a `origin`) con su identidad y hace push.
 4. Cuando están los 5 commits pusheados, se pasa a la fase siguiente.
 
 ## 4. Inputs

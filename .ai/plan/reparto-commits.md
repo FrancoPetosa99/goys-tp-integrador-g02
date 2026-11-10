@@ -1,6 +1,6 @@
 # Reparto de commits
 
-Trabajamos 5 personas en **una sola máquina**, directo sobre `main`. Los commits los hacen las personas, nunca el agente.
+Trabajamos 5 personas en **una sola máquina**. Desde la Fase 1, cada fase se trabaja en su propia rama (`fase-N-<slug>`), creada desde `main` y ya pusheada a `origin` (trackeada), que se mergea a `main` al cerrar la fase. Los commits los hacen las personas, nunca el agente.
 
 | Nombre | Usuario de GitHub | Rol |
 |---|---|---|
@@ -24,6 +24,7 @@ Cada persona sube solo los archivos de su fila en `.ai/plan/reparto-commits.md`.
 | **6** | `poster/` (editable y PDF) | `diagramas/imagen-diagrama.png` | `templates/checklist-entrega.md` | `README.md`, `progreso.md` | `documento/` (PDF) |
 
 ## Protocolo de commit (cada persona, desde esta máquina)
+La rama de la fase ya existe local y remotamente; no hace falta `git checkout -b`. `git push` (sin argumentos) alcanza: la rama ya trackea `origin/<rama-de-la-fase>`, nunca se pushea directo a `main`. Al cerrar la fase (los 5 commits pusheados a la rama), el merge a `main` se hace con **"Create a merge commit"** (nunca squash, nunca rebase) para no perder la autoría individual de cada commit (la necesita `git shortlog -sne` en A6.4). Si se usa un Pull Request para ese merge, el **base repository** debe ser el fork del equipo.
 ```bash
 git fetch && git status -sb         # ¿aparece "behind"? Si sí, avisar antes de seguir
 git add <solo sus archivos>          # nunca "git add ." ni "-A": la carpeta es compartida
@@ -34,7 +35,6 @@ git push                             # con su propio usuario y su token personal
 - No tocar el `user.name` / `user.email` global.
 - No usar `git pull --rebase` a ciegas: la carpeta es compartida y tiene cambios sin commitear de otras personas, y con eso falla. Como todos pushean desde esta máquina, el `main` local es el más actualizado. Si `git status -sb` muestra `behind`, usar `git pull --rebase --autostash`.
 - No borrar ni mover archivos de otras personas ni los de `.ai/`, `.claude/` y `CLAUDE.md`: el agente los necesita en todas las fases. Si hace falta una copia de seguridad, hacerla fuera del repo.
-- Otro integrante revisa `git diff --staged` en persona antes del push (la regla del README pide revisión antes de pushear a `main`).
 - Cada mail de la facultad debe estar agregado a la cuenta de GitHub de esa persona.
 - Cerrar sesión de GitHub en VS Code y navegador antes de pasar la máquina.
 
