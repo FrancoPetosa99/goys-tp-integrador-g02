@@ -49,6 +49,8 @@
 | 11/11 |  Fase 5: Makefile para orquestar escenarios, pruebas, backup y limpieza, y runbook operativo | Martín | feat(demo) + docs(documento) | 
 | 11/11 |  Fase 5: configuración e inventario de Ansible y variables centralizadas del laboratorio | Franco | feat(ansible) x2 | 
 | 11/11 |  Fase 5: playbook de backup del primario y de las configuraciones, y estructura de backups/ | Isabella | feat(ansible) + chore(demo) | 
+| 11/11 |  Fase 5: playbook de validación de streaming, lag por LSN y permisos de los roles | Agustín | feat(ansible) | 
+
 
 
 
