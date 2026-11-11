@@ -15,6 +15,11 @@ writer_pool = ConnectionPool(
     max_size=settings.writer_pool_max,
     open=False,
     kwargs={"autocommit": True},
+    # timeout corto a nivel pool (no solo connect_timeout de la conninfo):
+    # así TODO getconn() sin timeout explícito en los routers hereda el
+    # límite corto, sin tener que tocar cada call site (fase 4, mismo
+    # hallazgo que en ReaderPool: ver config.py).
+    timeout=settings.db_get_timeout_seconds,
 )
 writer_pool.open(wait=False)
 
