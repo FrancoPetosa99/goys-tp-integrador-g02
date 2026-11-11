@@ -65,6 +65,8 @@ networks:
 
 volumes:
   pg-primary-data:
+  pg-replica-1-data:
+  pg-replica-2-data:
   prometheus-data:
   grafana-data:
 
@@ -216,6 +218,87 @@ services:
       - pg-primary
     command: sh -c "ip route replace default via 10.20.1.254 && sleep infinity"
 
+  # ======================================================================
+  # Fase 3 — Réplicas de lectura (streaming físico asíncrono)
+  # ======================================================================
+
+  # pg-replica-1: siempre que haya al menos una réplica (perfiles r1 y r2).
+  pg-replica-1:
+    image: postgres:17.11
+    container_name: dbscale-pg-replica-1
+    hostname: pg-replica-1
+    profiles:
+      - r1
+      - r2
+    entrypoint: ["/replica-entrypoint.sh"]
+    environment:
+      - PRIMARY_HOST=10.20.1.10
+      - PRIMARY_PORT=5432
+      - REPLICATOR_USER=${REPLICATOR_USER}
+      - REPLICATOR_PASSWORD=${REPLICATOR_PASSWORD}
+    volumes:
+      - ./postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - pg-replica-1-data:/var/lib/postgresql/data
+    networks:
+      net-db-local:
+        ipv4_address: 10.30.1.10
+    cpus: "${POSTGRES_CPUS}"
+    mem_limit: ${POSTGRES_MEM}
+    restart: unless-stopped
+    depends_on:
+      - pg-primary
+
+  # Nunca NET_ADMIN en pg-replica-1 (D5): el sidecar lo tiene en su lugar.
+  sc-pg-replica-1:
+    <<: *sidecar
+    container_name: dbscale-sc-pg-replica-1
+    profiles:
+      - r1
+      - r2
+    network_mode: "service:pg-replica-1"
+    depends_on:
+      - pg-replica-1
+    command: sh -c "ip route replace default via 10.30.1.254 && sleep infinity"
+
+  # pg-replica-2: solo en el escenario de dos réplicas (perfil r2).
+  pg-replica-2:
+    image: postgres:17.11
+    container_name: dbscale-pg-replica-2
+    hostname: pg-replica-2
+    profiles:
+      - r2
+    entrypoint: ["/replica-entrypoint.sh"]
+    environment:
+      - PRIMARY_HOST=10.20.1.10
+      - PRIMARY_PORT=5432
+      - REPLICATOR_USER=${REPLICATOR_USER}
+      - REPLICATOR_PASSWORD=${REPLICATOR_PASSWORD}
+    volumes:
+      - ./postgres/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - pg-replica-2-data:/var/lib/postgresql/data
+    networks:
+      net-db-remota:
+        ipv4_address: 10.31.1.10
+    cpus: "${POSTGRES_CPUS}"
+    mem_limit: ${POSTGRES_MEM}
+    restart: unless-stopped
+    depends_on:
+      - pg-primary
+
+  sc-pg-replica-2:
+    <<: *sidecar
+    container_name: dbscale-sc-pg-replica-2
+    profiles:
+      - r2
+    network_mode: "service:pg-replica-2"
+    depends_on:
+      - pg-replica-2
+    command: sh -c "ip route replace default via 10.31.1.254 && sleep infinity"
+
   api:
     build:
       context: ../app
@@ -332,6 +415,65 @@ services:
       - pg-exporter-p
     command: sh -c "ip route replace default via 10.40.1.254 && sleep infinity"
 
+  # pg-exporter-1/2: exportan métricas de cada réplica (mismo patrón que
+  # pg-exporter-p). Comparten perfil con su réplica correspondiente, así no
+  # quedan corriendo sin nada que scrapear.
+  pg-exporter-1:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: dbscale-pg-exporter-1
+    hostname: pg-exporter-1
+    profiles:
+      - r1
+      - r2
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${MONITOR_USER}:${MONITOR_PASSWORD}@10.30.1.10:5432/${POSTGRES_DB}?sslmode=disable
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.32
+    cpus: "${EXPORTER_CPUS}"
+    mem_limit: ${EXPORTER_MEM}
+    restart: unless-stopped
+    depends_on:
+      - pg-replica-1
+
+  sc-pg-exporter-1:
+    <<: *sidecar
+    container_name: dbscale-sc-pg-exporter-1
+    profiles:
+      - r1
+      - r2
+    network_mode: "service:pg-exporter-1"
+    depends_on:
+      - pg-exporter-1
+    command: sh -c "ip route replace default via 10.40.1.254 && sleep infinity"
+
+  pg-exporter-2:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: dbscale-pg-exporter-2
+    hostname: pg-exporter-2
+    profiles:
+      - r2
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${MONITOR_USER}:${MONITOR_PASSWORD}@10.31.1.10:5432/${POSTGRES_DB}?sslmode=disable
+    networks:
+      net-mon:
+        ipv4_address: 10.40.1.33
+    cpus: "${EXPORTER_CPUS}"
+    mem_limit: ${EXPORTER_MEM}
+    restart: unless-stopped
+    depends_on:
+      - pg-replica-2
+
+  sc-pg-exporter-2:
+    <<: *sidecar
+    container_name: dbscale-sc-pg-exporter-2
+    profiles:
+      - r2
+    network_mode: "service:pg-exporter-2"
+    depends_on:
+      - pg-exporter-2
+    command: sh -c "ip route replace default via 10.40.1.254 && sleep infinity"
+
   # cAdvisor solo habla con prometheus dentro de net-mon: no necesita ruta
   # por defecto ni sidecar (D5). Corre como root (confirmado) y no inicia
   # tráfico cruzado de subred en esta fase.
@@ -372,6 +514,9 @@ services:
     entrypoint: ["sleep", "infinity"]
     environment:
       - K6_PROMETHEUS_RW_SERVER_URL=http://10.40.1.20:9090/api/v1/write
+      - API_BASE_URL=http://10.10.1.10:8000
+    volumes:
+      - ./k6:/scripts:ro
     networks:
       net-clientes:
         ipv4_address: 10.50.1.10

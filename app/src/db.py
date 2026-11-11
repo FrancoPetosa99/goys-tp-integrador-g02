@@ -1,4 +1,3 @@
-import itertools
 import logging
 import threading
 import time
@@ -57,12 +56,19 @@ class ReaderPool:
     def __init__(self, hosts: list[str]):
         self._hosts = [_ReadHost(h) for h in hosts]
         self._cycle_lock = threading.Lock()
-        self._cycle = itertools.cycle(self._hosts)
+        self._next_start = 0
 
     def _next_candidates(self):
+        n = len(self._hosts)
+        # Avanza el punto de partida en 1 por llamada (no en `n`): con
+        # itertools.cycle y un consumo de `n` elementos por llamada, la fase
+        # vuelve siempre al mismo punto de partida (consumís un período
+        # completo cada vez) y el "round-robin" degenera en "siempre el
+        # primer host sano". Este índice sí rota.
         with self._cycle_lock:
-            ordered = [next(self._cycle) for _ in range(len(self._hosts))]
-        return ordered
+            start = self._next_start
+            self._next_start = (self._next_start + 1) % n
+        return [self._hosts[(start + i) % n] for i in range(n)]
 
     def run(self, query: str, params: tuple = ()):
         """Ejecuta una lectura en el primer host sano del round-robin.

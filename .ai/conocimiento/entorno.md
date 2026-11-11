@@ -71,5 +71,12 @@ Con los mounts de solo lectura estándar (`/rootfs`, `/var/run`, `/sys`, `/var/l
 ## `.env` fuera de `demo/` (D19)
 `docker compose` resuelve `.env` según el directorio del **archivo compose**, no el directorio desde el que se invoca el comando. Probado con una red/compose descartable: un `.env` en el directorio padre de donde vive `docker-compose.yml` no se carga aunque la terminal esté parada ahí. Como `.env` vive en la raíz del repo, todo comando debe incluir `--env-file ../.env` (invocando desde `demo/`).
 
+## Réplicas de lectura (fase 3)
+- `pg_basebackup -R` desde `demo/postgres/replica-entrypoint.sh` funciona sin reintentos en condiciones normales (primario ya arriba y accesible por el router): alta completa en los pocos segundos que toma copiar ~500.000 filas en esta máquina.
+- `demo/scripts/reset-estado.sh <escenario>` tarda, de punta a punta (parar servicios, borrar volúmenes, recrear primario, esperar seed de 500.000 productos, levantar réplicas y esperar `streaming`, `ANALYZE`, recrear `api`): ~33-35 s sin réplicas, ~55-59 s con 1 réplica, ~63-73 s con 2 réplicas. Medido en 7 corridas reales durante el Experimento 1 (`k6-results/experimento-1.log`).
+- `pg_stat_replication` muestra `state=streaming` y `replay_lag` del orden de decenas de milisegundos en esta máquina (sin latencia de red inyectada: eso es fase 4) para ambas réplicas simultáneas.
+- `rate(container_cpu_usage_seconds_total{name="dbscale-pg-primary"}[D])` en Prometheus (con `D` = duración de la corrida) es la forma usada para medir el CPU promedio de un nodo durante una corrida completa de k6; `cadvisor` sigue etiquetando por `container_name` real también para los nuevos nodos (réplicas y sus exporters), sin necesitar cambios.
+- Con el límite de recursos de `.env.example` (PostgreSQL 2 CPUs, API y k6 4 CPUs cada uno), en ninguna de las 9 corridas del Experimento 1 la API o k6 se acercaron a su límite mientras PostgreSQL (primario o réplica) sí: no hizo falta ajustar D11 en esta fase.
+
 ## Pendiente de verificar
 - Que la laptop Linux del grupo se comporte igual (versión de Docker, `br_netfilter`).
