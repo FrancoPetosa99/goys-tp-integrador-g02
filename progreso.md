@@ -40,6 +40,7 @@
 | 11/11 |  Fase 3: script de reseteo de estado entre corridas (borra solo los volúmenes de PostgreSQL y reinicializa el escenario) | Franco  | feat(scripts) | 
 | 11/11 |  Fase 3: alta de réplicas con pg_basebackup -R y capturas de replicación en streaming y de escritura rechazada en réplica | Isabella | feat(postgres) + docs(capturas) | 
 | 11/11 |  Fase 3: escenarios de carga k6 (carga base, estrés y pico, mezcla 90/10) y scrape de pg-exporter-1 y 2 | Agustín | feat(k6) + feat(prometheus) | 
+| 11/11 |  Fase 3: resultados del Experimento 1 y 5 capturas de la curva de escalado | Sofía | docs(documento) + docs(capturas) | 
 
 ## 🚧 Pendientes / decisiones
 
