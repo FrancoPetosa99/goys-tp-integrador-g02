@@ -38,6 +38,7 @@
 | 10/11 |  Fase 2: capturas de targets en UP, línea base de k6 y dashboard de Grafana con carga en curso (2 partes) | Sofía | docs(capturas) x2 | 
 | 11/11 |  Fase 3: fix del round-robin de lecturas y de la cardinalidad de métricas, compose con réplicas, exportadores y sidecars; decisiones D1, D12, D14, D21, D22 y D23 | Martín | fix(app) x2 + feat(demo) | 
 | 11/11 |  Fase 3: script de reseteo de estado entre corridas (borra solo los volúmenes de PostgreSQL y reinicializa el escenario) | Franco  | feat(scripts) | 
+| 11/11 |  Fase 3: alta de réplicas con pg_basebackup -R y capturas de replicación en streaming y de escritura rechazada en réplica | Isabella | feat(postgres) + docs(capturas) | 
 
 ## 🚧 Pendientes / decisiones
 
