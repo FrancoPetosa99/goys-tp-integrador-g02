@@ -1,0 +1,41 @@
+# Tarea incluida (no es un playbook numerado): revisa un puerto publicado al
+# host. Se usa con include_tasks + loop desde 01-preflight.yml para no
+# repetir la misma lógica para 3000 y 9091. Vars esperadas: check_port,
+# expected_container ("port" se evita: es un nombre reservado de Ansible).
+
+- name: "Puerto {{ check_port }}: ver qué contenedor lo publica (si alguno)"
+  ansible.builtin.command:
+    argv:
+      - docker
+      - ps
+      - "--filter"
+      - "publish={{ check_port }}"
+      - "--format"
+      - "{{ '{{.Names}}' }}"
+  register: port_owner
+  changed_when: false
+
+- name: "Puerto {{ check_port }}: ver qué hay escuchando en el host"
+  ansible.builtin.command:
+    argv:
+      - ss
+      - -ltn
+  register: port_listen
+  changed_when: false
+
+- name: "Puerto {{ check_port }}: calcular si algo (ajeno a Docker) escucha ahí"
+  ansible.builtin.set_fact:
+    port_tiene_listener_ajeno: "{{ (port_owner.stdout_lines | length == 0) and (port_listen.stdout is search(':' ~ check_port ~ '(\\s|$)')) }}"
+
+- name: "Puerto {{ check_port }}: evidencia"
+  ansible.builtin.debug:
+    msg:
+      - "contenedor(es) que publican el puerto {{ check_port }}: {{ port_owner.stdout_lines }}"
+      - "¿hay un listener ajeno a Docker en :{{ check_port }}?: {{ port_tiene_listener_ajeno }}"
+
+- name: "Puerto {{ check_port }}: debe estar libre o ser {{ expected_container }}"
+  ansible.builtin.assert:
+    that:
+      - (expected_container in port_owner.stdout_lines) or (port_owner.stdout_lines | length == 0 and not port_tiene_listener_ajeno)
+    fail_msg: "El puerto {{ check_port }} está ocupado y no es {{ expected_container }}: {{ port_owner.stdout_lines }}"
+    success_msg: "Puerto {{ check_port }}: {{ 'ocupado por ' ~ expected_container if expected_container in port_owner.stdout_lines else 'libre' }}"
