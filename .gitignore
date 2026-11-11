@@ -29,9 +29,11 @@ pgdata/
 *-data/
 k6-results/
 *.k6.json
-backups/*.sql
-backups/*.dump
-backups/*.gz
+# Fase 5: el dump y las copias de configuración con timestamp son
+# artefactos operativos de "make backup" (ansible/playbooks/03-backup.yml),
+# no se versionan. Solo backups/.gitkeep queda trackeado.
+backups/*
+!backups/.gitkeep
 
 # Temporales / backup
 *.tmp

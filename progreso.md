@@ -48,6 +48,8 @@
 | 11/11 |  Fase 4: resultados de los experimentos 2, 3 y 4 y 6 capturas de réplica caída y failover | Sofía | docs + docs(capturas) |
 | 11/11 |  Fase 5: Makefile para orquestar escenarios, pruebas, backup y limpieza, y runbook operativo | Martín | feat(demo) + docs(documento) | 
 | 11/11 |  Fase 5: configuración e inventario de Ansible y variables centralizadas del laboratorio | Franco | feat(ansible) x2 | 
+| 11/11 |  Fase 5: playbook de backup del primario y de las configuraciones, y estructura de backups/ | Isabella | feat(ansible) + chore(demo) | 
+
 
 
 
