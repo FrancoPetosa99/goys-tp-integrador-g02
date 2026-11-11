@@ -50,6 +50,7 @@
 | 11/11 |  Fase 5: configuración e inventario de Ansible y variables centralizadas del laboratorio | Franco | feat(ansible) x2 | 
 | 11/11 |  Fase 5: playbook de backup del primario y de las configuraciones, y estructura de backups/ | Isabella | feat(ansible) + chore(demo) | 
 | 11/11 |  Fase 5: playbook de validación de streaming, lag por LSN y permisos de los roles | Agustín | feat(ansible) | 
+| 11/11 |  Fase 5: playbook de preflight, decisión D32 y evidencias de los 3 playbooks | Sofía | feat(ansible) + docs(repo) + docs(capturas) | 
 
 
 

@@ -1,0 +1,257 @@
+
+PLAY [Fase 5 — Preflight del laboratorio] **************************************
+
+TASK [Verificar versión de Docker] *********************************************
+ok: [localhost]
+
+TASK [Evidencia: docker --version] *********************************************
+ok: [localhost] => {
+    "docker_version.stdout": "Docker version 29.9.2, build a82e528"
+}
+
+TASK [Docker debe estar instalado] *********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Docker presente: Docker version 29.9.2, build a82e528"
+}
+
+TASK [Verificar versión de Docker Compose] *************************************
+ok: [localhost]
+
+TASK [Evidencia: docker compose version] ***************************************
+ok: [localhost] => {
+    "compose_version.stdout": "Docker Compose version v5.6.1"
+}
+
+TASK [Docker Compose debe estar instalado] *************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Docker Compose presente: Docker Compose version v5.6.1"
+}
+
+TASK [Listar imágenes locales] *************************************************
+ok: [localhost]
+
+TASK [Evidencia: imágenes locales] *********************************************
+ok: [localhost] => {
+    "docker_images.stdout_lines": [
+        "dbscale/api:0.1.0",
+        "dbscale/router:0.1.0",
+        "alpine:3.24.4",
+        "prom/prometheus:v3.16.0",
+        "python:3.12.16-slim",
+        "postgres:17.11",
+        "goys-vuln-lab-node:22.23.4-bookworm-slim",
+        "goys-vuln-lab-py:1.2.1",
+        "goys-vuln-lab-node:22.23.3-bookworm-slim",
+        "goys-vuln-lab-py:1.0.9",
+        "php:8.3.36-apache",
+        "grafana/grafana:13.3.0",
+        "grafana/k6:2.3.0",
+        "php:8.3.35-apache",
+        "prometheuscommunity/postgres-exporter:v0.20.1",
+        "hello-world:latest",
+        "gcr.io/cadvisor/cadvisor:v0.55.1"
+    ]
+}
+
+TASK [Cada imagen requerida debe estar ya descargada, con tag fijo] ************
+ok: [localhost] => (item=alpine:3.24.4) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "alpine:3.24.4",
+    "msg": "Imagen presente: alpine:3.24.4"
+}
+ok: [localhost] => (item=postgres:17.11) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "postgres:17.11",
+    "msg": "Imagen presente: postgres:17.11"
+}
+ok: [localhost] => (item=grafana/k6:2.3.0) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "grafana/k6:2.3.0",
+    "msg": "Imagen presente: grafana/k6:2.3.0"
+}
+ok: [localhost] => (item=prom/prometheus:v3.16.0) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "prom/prometheus:v3.16.0",
+    "msg": "Imagen presente: prom/prometheus:v3.16.0"
+}
+ok: [localhost] => (item=grafana/grafana:13.3.0) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "grafana/grafana:13.3.0",
+    "msg": "Imagen presente: grafana/grafana:13.3.0"
+}
+ok: [localhost] => (item=prometheuscommunity/postgres-exporter:v0.20.1) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "prometheuscommunity/postgres-exporter:v0.20.1",
+    "msg": "Imagen presente: prometheuscommunity/postgres-exporter:v0.20.1"
+}
+ok: [localhost] => (item=gcr.io/cadvisor/cadvisor:v0.55.1) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "gcr.io/cadvisor/cadvisor:v0.55.1",
+    "msg": "Imagen presente: gcr.io/cadvisor/cadvisor:v0.55.1"
+}
+ok: [localhost] => (item=dbscale/router:0.1.0) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "dbscale/router:0.1.0",
+    "msg": "Imagen presente: dbscale/router:0.1.0"
+}
+ok: [localhost] => (item=dbscale/api:0.1.0) => {
+    "ansible_loop_var": "item",
+    "changed": false,
+    "item": "dbscale/api:0.1.0",
+    "msg": "Imagen presente: dbscale/api:0.1.0"
+}
+
+TASK [Contar CPUs del host] ****************************************************
+ok: [localhost]
+
+TASK [Medir memoria del host] **************************************************
+ok: [localhost]
+
+TASK [Evidencia: CPUs y memoria] ***********************************************
+ok: [localhost] => {
+    "msg": [
+        "CPUs: 16",
+        "free -m: ['               total        used        free      shared  buff/cache   available', 'Mem:           18913        2270       10886          20        6042       16643', 'Swap:           5120           0        5120']"
+    ]
+}
+
+TASK [Debe haber al menos 4 CPUs] **********************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "CPUs OK: 16 >= 4"
+}
+
+TASK [Debe haber al menos 4096 MB de RAM disponible] ***************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "RAM disponible OK: 16643 MB"
+}
+
+TASK [Revisar puertos publicados (3000 Grafana, 9091 Prometheus)] **************
+included: /home/tincho/dev/goys-tp-integrador-g02/ansible/playbooks/tasks/check_port.yml for localhost => (item=puerto 3000)
+included: /home/tincho/dev/goys-tp-integrador-g02/ansible/playbooks/tasks/check_port.yml for localhost => (item=puerto 9091)
+
+TASK [Puerto 3000: ver qué contenedor lo publica (si alguno)] ******************
+ok: [localhost]
+
+TASK [Puerto 3000: ver qué hay escuchando en el host] **************************
+ok: [localhost]
+
+TASK [Puerto 3000: calcular si algo (ajeno a Docker) escucha ahí] **************
+ok: [localhost]
+
+TASK [Puerto 3000: evidencia] **************************************************
+ok: [localhost] => {
+    "msg": [
+        "contenedor(es) que publican el puerto 3000: []",
+        "¿hay un listener ajeno a Docker en :3000?: False"
+    ]
+}
+
+TASK [Puerto 3000: debe estar libre o ser dbscale-grafana] *********************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Puerto 3000: libre"
+}
+
+TASK [Puerto 9091: ver qué contenedor lo publica (si alguno)] ******************
+ok: [localhost]
+
+TASK [Puerto 9091: ver qué hay escuchando en el host] **************************
+ok: [localhost]
+
+TASK [Puerto 9091: calcular si algo (ajeno a Docker) escucha ahí] **************
+ok: [localhost]
+
+TASK [Puerto 9091: evidencia] **************************************************
+ok: [localhost] => {
+    "msg": [
+        "contenedor(es) que publican el puerto 9091: []",
+        "¿hay un listener ajeno a Docker en :9091?: False"
+    ]
+}
+
+TASK [Puerto 9091: debe estar libre o ser dbscale-prometheus] ******************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Puerto 9091: libre"
+}
+
+TASK [Ruteo: ¿el stack real está arriba?] **************************************
+ok: [localhost]
+
+TASK [Fijar si el stack está arriba] *******************************************
+ok: [localhost]
+
+TASK [Evidencia: estado del stack] *********************************************
+ok: [localhost] => {
+    "msg": "stack_arriba=False (router_running=[])"
+}
+
+TASK [Ruteo (stack arriba): net-app -> net-db-primaria vía router, desde sc-api] ***
+skipping: [localhost]
+
+TASK [Evidencia: ruteo con stack arriba] ***************************************
+skipping: [localhost]
+
+TASK [El ruteo net-app -> net-db-primaria debe funcionar (stack arriba)] *******
+skipping: [localhost]
+
+TASK [Levantar router + t-app + t-db (perfil test-red)] ************************
+ok: [localhost]
+
+TASK [Ruteo: net-app -> net-db-primaria vía router, desde t-app] ***************
+ok: [localhost]
+
+TASK [Evidencia: ruteo con stack abajo (test-red)] *****************************
+ok: [localhost] => {
+    "route_test_abajo": {
+        "attempts": 1,
+        "changed": false,
+        "cmd": [
+            "docker",
+            "exec",
+            "dbscale-t-app",
+            "nc",
+            "-zv",
+            "-w2",
+            "10.20.1.10",
+            "5432"
+        ],
+        "delta": "0:00:00.193444",
+        "end": "2026-11-11 23:05:28.566686",
+        "failed": false,
+        "msg": "",
+        "rc": 0,
+        "start": "2026-11-11 23:05:28.373242",
+        "stderr": "10.20.1.10 (10.20.1.10:5432) open",
+        "stderr_lines": [
+            "10.20.1.10 (10.20.1.10:5432) open"
+        ],
+        "stdout": "",
+        "stdout_lines": []
+    }
+}
+
+TASK [El ruteo net-app -> net-db-primaria debe funcionar (test-red)] ***********
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Ruteo OK (test-red): t-app -> 10.20.1.10:5432"
+}
+
+TASK [Repliegar test-red (nunca -v): deja el stack como estaba (abajo)] ********
+ok: [localhost]
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=34   changed=0    unreachable=0    failed=0    skipped=3    rescued=0    ignored=0   
+
