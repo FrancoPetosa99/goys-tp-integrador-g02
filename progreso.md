@@ -39,6 +39,7 @@
 | 11/11 |  Fase 3: fix del round-robin de lecturas y de la cardinalidad de métricas, compose con réplicas, exportadores y sidecars; decisiones D1, D12, D14, D21, D22 y D23 | Martín | fix(app) x2 + feat(demo) | 
 | 11/11 |  Fase 3: script de reseteo de estado entre corridas (borra solo los volúmenes de PostgreSQL y reinicializa el escenario) | Franco  | feat(scripts) | 
 | 11/11 |  Fase 3: alta de réplicas con pg_basebackup -R y capturas de replicación en streaming y de escritura rechazada en réplica | Isabella | feat(postgres) + docs(capturas) | 
+| 11/11 |  Fase 3: escenarios de carga k6 (carga base, estrés y pico, mezcla 90/10) y scrape de pg-exporter-1 y 2 | Agustín | feat(k6) + feat(prometheus) | 
 
 ## 🚧 Pendientes / decisiones
 

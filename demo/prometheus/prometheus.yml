@@ -19,6 +19,14 @@ scrape_configs:
     static_configs:
       - targets: ["10.40.1.31:9187"]
 
+  - job_name: pg-exporter-1
+    static_configs:
+      - targets: ["10.40.1.32:9187"]
+
+  - job_name: pg-exporter-2
+    static_configs:
+      - targets: ["10.40.1.33:9187"]
+
   - job_name: cadvisor
     static_configs:
       - targets: ["10.40.1.40:8080"]
