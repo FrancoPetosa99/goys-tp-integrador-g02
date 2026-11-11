@@ -41,7 +41,7 @@
       "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
       "targets": [
         {
-          "expr": "sum(rate(api_errors_total[1m])) by (endpoint)",
+          "expr": "sum(rate(api_errors_total[1m])) by (endpoint) or vector(0)",
           "legendFormat": "{{endpoint}}"
         }
       ]
@@ -129,9 +129,9 @@
     },
     {
       "id": 10,
-      "title": "Estado del primario",
+      "title": "Estado de cada nodo (pg_up)",
       "type": "stat",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -144,8 +144,44 @@
       },
       "targets": [
         {
-          "expr": "up{job=\"pg-exporter-p\"}",
-          "legendFormat": "pg-primary"
+          "expr": "pg_up{job=~\"pg-exporter-p|pg-exporter-1|pg-exporter-2\"}",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Rol actual de cada nodo (primario vs réplica)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "Primario", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "Réplica", "color": "blue" } } }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "pg_replication_is_replica{job=~\"pg-exporter-p|pg-exporter-1|pg-exporter-2\"}",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Lag de replicación (WAL sin aplicar, medido en el primario)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 },
+      "description": "pg_stat_replication_pg_wal_lsn_diff (postgres-exporter v0.20.1), medido en pg-exporter-p contra pg_stat_replication del primario. Bytes de WAL todavía no aplicados por cada réplica. No usar pg_replication_lag_seconds para esto: esa métrica crece también cuando no hay escrituras nuevas (tiempo desde la última transacción replicada, no lag de red real).",
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "pg_stat_replication_pg_wal_lsn_diff{job=\"pg-exporter-p\"}",
+          "legendFormat": "{{client_addr}}"
         }
       ]
     }

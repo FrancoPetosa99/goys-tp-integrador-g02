@@ -1,11 +1,48 @@
 groups:
   - name: db-scale-lab
     rules:
+      # Fase 4: la expresión original (up{job="pg-exporter-p"}==0) no
+      # disparaba con `docker stop pg-primary` — el exporter sigue vivo y
+      # responde al scrape (up=1), solo falla su conexión a la base. Se
+      # verificó con el exporter real (prometheuscommunity/postgres-exporter
+      # v0.20.1) que expone `pg_up` (1/0 según si SU conexión a Postgres
+      # funciona): con eso sí dispara. Ver decisiones-tecnicas.md.
       - alert: PrimarioCaido
-        expr: up{job="pg-exporter-p"} == 0
-        for: 30s
+        expr: pg_up{job="pg-exporter-p"} == 0
+        for: 15s
         labels:
           severity: critical
         annotations:
           summary: "El primario de PostgreSQL no responde"
-          description: "pg-exporter-p no pudo scrapear pg-primary durante más de 30s (up==0)."
+          description: "pg-exporter-p no puede conectarse a pg-primary durante más de 15s (pg_up==0)."
+
+      - alert: ReplicaCaida
+        expr: pg_up{job=~"pg-exporter-1|pg-exporter-2"} == 0
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Una réplica de lectura no responde"
+          description: "{{ $labels.job }} no puede conectarse a su réplica durante más de 15s (pg_up==0)."
+
+      # Lag medido en bytes de WAL no aplicados (pg_stat_replication en el
+      # primario, vía pg-exporter-p), no en "tiempo desde la última
+      # transacción replicada" (esa otra métrica, pg_replication_lag_seconds,
+      # crece también sin escrituras nuevas y no sirve para esto; ver
+      # decisiones-tecnicas.md). Umbral calibrado con los números reales del
+      # Experimento 3: con la mezcla 90/10 estándar (carga-base.js) el lag
+      # nunca superó unos pocos bytes en 0/20/50/100ms de latencia inyectada
+      # (demasiado poco volumen de escritura); con escritura-intensiva.js
+      # (~800 escrituras/s) la réplica CON latencia agregada llegó, según la
+      # corrida, entre 16 KiB y 410 KiB, mientras la réplica SIN latencia
+      # agregada se mantuvo entre 0.3 KiB y 33 KiB. La variación corrida a
+      # corrida es grande (hardware compartido): 20 KiB queda por encima del
+      # ruido típico sin latencia y dispara de forma confiable en la demo.
+      - alert: LagAlto
+        expr: pg_stat_replication_pg_wal_lsn_diff{job="pg-exporter-p"} > 20480
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Lag de replicación alto"
+          description: "{{ $labels.client_addr }} tiene más de 20 KiB de WAL sin aplicar durante más de 15s."

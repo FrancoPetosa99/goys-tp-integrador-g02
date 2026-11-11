@@ -5,7 +5,7 @@ import time
 from psycopg_pool import ConnectionPool
 
 from .config import settings
-from .metrics import READS_BY_NODE
+from .metrics import READER_HOST_HEALTHY, READS_BY_NODE
 
 logger = logging.getLogger("dbscale.db")
 
@@ -26,10 +26,13 @@ class _ReadHost:
             max_size=settings.reader_pool_max,
             open=False,
             kwargs={"autocommit": True},
+            # timeout corto a nivel pool: ver nota en settings.db_get_timeout_seconds.
+            timeout=settings.db_get_timeout_seconds,
         )
         self.pool.open(wait=False)
         self._consecutive_failures = 0
         self._lock = threading.Lock()
+        READER_HOST_HEALTHY.labels(host=self.host).set(1)
 
     @property
     def healthy(self) -> bool:
@@ -37,11 +40,29 @@ class _ReadHost:
 
     def mark_ok(self):
         with self._lock:
+            was_healthy = self.healthy
             self._consecutive_failures = 0
+        if not was_healthy:
+            logger.info("host de lectura %s reincorporado al round-robin", self.host)
+        READER_HOST_HEALTHY.labels(host=self.host).set(1)
 
     def mark_failed(self):
         with self._lock:
             self._consecutive_failures += 1
+            now_unhealthy = not self.healthy
+        if now_unhealthy:
+            logger.warning("host de lectura %s marcado como caído tras %d fallos consecutivos", self.host, self._consecutive_failures)
+            READER_HOST_HEALTHY.labels(host=self.host).set(0)
+
+    def probe(self) -> bool:
+        """SELECT 1 de reintento, fuera del camino de lectura normal."""
+        try:
+            with self.pool.connection(timeout=2) as conn, conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            self.mark_ok()
+            return True
+        except Exception:  # noqa: BLE001 - solo nos interesa si respondió o no
+            return False
 
 
 class ReaderPool:
@@ -57,6 +78,18 @@ class ReaderPool:
         self._hosts = [_ReadHost(h) for h in hosts]
         self._cycle_lock = threading.Lock()
         self._next_start = 0
+        # Reintento periódico: sin esto, un host que superó _FAIL_THRESHOLD
+        # queda afuera del round-robin para siempre (_next_candidates filtra
+        # por healthy), aunque el nodo se recupere. Un hilo por worker de
+        # gunicorn sondea los hosts no sanos fuera del camino de lectura.
+        threading.Thread(target=self._recheck_loop, daemon=True).start()
+
+    def _recheck_loop(self):
+        while True:
+            time.sleep(settings.reader_recheck_interval_seconds)
+            for host in self._hosts:
+                if not host.healthy:
+                    host.probe()
 
     def _next_candidates(self):
         n = len(self._hosts)
@@ -81,7 +114,7 @@ class ReaderPool:
             if not host.healthy:
                 continue
             try:
-                with host.pool.connection() as conn, conn.cursor() as cur:
+                with host.pool.connection(timeout=settings.db_get_timeout_seconds) as conn, conn.cursor() as cur:
                     cur.execute(query, params)
                     rows = cur.fetchall()
                     columns = [d.name for d in cur.description]
