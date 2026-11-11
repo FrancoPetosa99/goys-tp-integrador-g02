@@ -42,6 +42,7 @@
 | 11/11 |  Fase 3: escenarios de carga k6 (carga base, estrés y pico, mezcla 90/10) y scrape de pg-exporter-1 y 2 | Agustín | feat(k6) + feat(prometheus) | 
 | 11/11 |  Fase 3: resultados del Experimento 1 y 5 capturas de la curva de escalado | Sofía | docs(documento) + docs(capturas) | 
 | 11/11 |  Fase 4: detección de réplica caída con recheck y timeouts configurables en la app, compose de la fase, decisiones D6, D7, D8 y D16 actualizadas y D24 a D31 nuevas | Martín | feat(app) + chore(demo) | 
+| 11/11 |  Fase 4: scripts de latencia (netem), corte de réplica y escenarios, variables nuevas en .env.example y capturas de lag vs latencia y read-after-write | Franco | feat(demo) + docs(capturas) | 
 
 ## 🚧 Pendientes / decisiones
 
