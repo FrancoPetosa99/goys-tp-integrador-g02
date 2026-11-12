@@ -90,5 +90,27 @@ Con los mounts de solo lectura estándar (`/rootfs`, `/var/run`, `/sys`, `/var/l
 - Tiempo de failover manual (`docker stop pg-primary` → primera escritura exitosa, con `promote-replica-1.sh` ya corregido): 2,8s en la corrida limpia. `pg_ctl promote` + repunte del DNAT tardó 2,1-3,4s en las 3 corridas medidas; el resto del tiempo (variable, de casi 0 a 25s según la corrida) es reconexión del pool de la app, no de PostgreSQL.
 - `pg_ctl: cannot be run as root` (ver arriba) es el único bug real encontrado en un script nuevo de esta fase; se corrigió antes de la medición final.
 
+## Verificación Fase 6 — A6.3
+
+Corrido hoy (12/11/2026), en esta máquina WSL2, 3 ciclos completos reales de `docker compose up`/`down` sobre el escenario r2 (2 réplicas), cada uno con `--pull never` (cero pulls de red en los 3 — confirma A1.6/D3 también a nivel de arranque del stack, no solo de ruteo) y sin usar `-v` en ningún `down`. El ciclo 3 incluyó además un failover real (`promote-replica-1.sh`), seguido de `reset-estado.sh r2` y `docker compose restart router` para dejar todo en el estado correcto (verificado: VIP de vuelta a `10.20.1.10`, ambas réplicas en `streaming`).
+
+| Ciclo | `up -d --pull never` | Primario `pg_isready` (desde el `up`) | Ambas réplicas `streaming` (desde el `up`) | API responde 200 en `/products` (desde el `up`) | Secuencia de demo corta | `down` |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 905 ms | 1448 ms | 6683 ms | confirmado manualmente 200 OK (el chequeo automático de ese ciclo tenía un bug de medición con `curl`, corregido para los ciclos 2-3; el stack sí estaba sano) | 61620 ms (~62 s) | 24069 ms (~24 s) |
+| 2 | 10948 ms | 11577 ms | 16547 ms | 17559 ms (~17,6 s) | 61635 ms (~62 s) | 24135 ms (~24 s) |
+| 3 (con failover real) | 10669 ms | 11150 ms | 16133 ms | 17064 ms (~17 s) | 64026 ms (~64 s): 30 GET reales (~23 s), `netem add 50ms`+`show`+`del` (~5 s), `corte-replica.sh replica2 stop`+espera+`start`+espera (~33 s), `promote-replica-1.sh` | 24187 ms (~24 s) |
+
+**Conclusión (WSL2):** con los volúmenes de datos ya existentes (ciclos 2 y 3), el stack queda sano (primario + 2 réplicas en `streaming` + API respondiendo) en **~17-18 segundos** desde el `up`. El `down` tarda siempre **~24 segundos**. Ningún ciclo intentó descargar nada de Internet. El procedimiento completo (incluida la recuperación tras el failover del ciclo 3) está detallado también en `documento/guia-demo-stand.md`.
+
+**Pendiente de verificar — procedimiento para la laptop Linux del grupo (y repetición del corte físico de Wi-Fi):**
+
+Correr, en la laptop Linux, la misma secuencia (3 ciclos de `up` → esperar salud → `down`, sin `-v`, con `--pull never`), cronometrando cada etapa con `date -Iseconds` antes y después (o con un cronómetro de mano si no se quiere instrumentar). Además, en **al menos un ciclo** (de los corridos en WSL2 o en la laptop Linux), cortar la Wi-Fi físicamente antes del `up` y confirmar que el stack arranca y queda sano igual, como prueba adicional de "sin Internet" más allá de `--pull never` (que ya prueba que no hace falta pull, pero no corta la conectividad real de la máquina). Completar esta tabla:
+
+| Ciclo | Máquina | `up` → stack sano (tiempo) | `down` (tiempo) | ¿Wi-Fi cortada? | Resultado |
+|---|---|---|---|---|---|
+| 1 | Laptop Linux | | | Sí / No | |
+| 2 | Laptop Linux | | | Sí / No | |
+| 3 | Laptop Linux | | | Sí / No | |
+
 ## Pendiente de verificar
-- Que la laptop Linux del grupo se comporte igual (versión de Docker, `br_netfilter`).
+- Que la laptop Linux del grupo se comporte igual (versión de Docker, `br_netfilter`) — ver tabla de arriba, "Verificación Fase 6 — A6.3".
