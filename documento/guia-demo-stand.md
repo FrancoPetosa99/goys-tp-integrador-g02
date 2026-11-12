@@ -66,3 +66,7 @@ No debuguear en vivo: pasar a capturas reales.
 
 - Solo netem y corte de réplica: no hace falta nada.
 - Tras un failover real: `make reset SCENARIO=r2` y después `docker compose --env-file .env -f demo/docker-compose.yml -p dbscale restart router` (revierte la VIP al primario original). Confirmar con `make validar`.
+
+## Al terminar el día
+
+`make down` baja todos los contenedores. Nunca usar `-v`: borraría los datos de las bases.
