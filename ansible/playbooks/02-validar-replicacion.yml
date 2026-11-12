@@ -1,0 +1,414 @@
+# 02-validar-replicacion.yml — A5.2: réplicas en streaming, lag medido por
+# diferencia de LSN (D26, nunca pg_replication_lag_seconds) y permisos de
+# cada rol validados con assert. Requiere el escenario r2 (ambas réplicas
+# arriba: "make up-r2"). Playbook de lectura: la única escritura que hace
+# (la prueba de app_writer) se limpia siempre en el mismo playbook, así
+# correrlo dos veces seguidas no deja rastro ni choca con el UNIQUE de
+# categories.name (A5.4).
+---
+- name: "Fase 5 — Validar replicación y permisos"
+  hosts: controlador
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../vars/lab.yml
+
+  tasks:
+    # --- Credenciales desde el entorno (el Makefile ya cargó .env) -------
+    - name: Leer credenciales desde el entorno
+      ansible.builtin.set_fact:
+        pg_superuser_user: "{{ lookup('env', 'PG_SUPERUSER_USER') | default('postgres', true) }}"
+        pg_superuser_password: "{{ lookup('env', 'PG_SUPERUSER_PASSWORD') }}"
+        app_writer_user: "{{ lookup('env', 'APP_WRITER_USER') }}"
+        app_writer_password: "{{ lookup('env', 'APP_WRITER_PASSWORD') }}"
+        app_reader_user: "{{ lookup('env', 'APP_READER_USER') }}"
+        app_reader_password: "{{ lookup('env', 'APP_READER_PASSWORD') }}"
+        monitor_user: "{{ lookup('env', 'MONITOR_USER') }}"
+        monitor_password: "{{ lookup('env', 'MONITOR_PASSWORD') }}"
+      no_log: true
+
+    # --- Precondición: escenario r2 (ambas réplicas) ----------------------
+    - name: Verificar que pg-replica-1 está corriendo
+      ansible.builtin.command:
+        argv: [docker, ps, "--filter", "name={{ containers.pg_replica_1 }}", "--format", "{{ '{{.Names}}' }}"]
+      register: replica1_running
+      changed_when: false
+
+    - name: Verificar que pg-replica-2 está corriendo
+      ansible.builtin.command:
+        argv: [docker, ps, "--filter", "name={{ containers.pg_replica_2 }}", "--format", "{{ '{{.Names}}' }}"]
+      register: replica2_running
+      changed_when: false
+
+    - name: "Evidencia: réplicas corriendo"
+      ansible.builtin.debug:
+        msg:
+          - "pg-replica-1: {{ replica1_running.stdout_lines }}"
+          - "pg-replica-2: {{ replica2_running.stdout_lines }}"
+
+    - name: Este playbook requiere el escenario r2 (ambas réplicas arriba)
+      ansible.builtin.assert:
+        that:
+          - containers.pg_replica_1 in replica1_running.stdout_lines
+          - containers.pg_replica_2 in replica2_running.stdout_lines
+        fail_msg: "Falta levantar el escenario r2 (make up-r2) antes de validar la replicación."
+        success_msg: "Escenario r2 confirmado: ambas réplicas están corriendo."
+
+    # --- Streaming (A3.1 / A5.2) ------------------------------------------
+    - name: Consultar pg_stat_replication en el primario
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ pg_superuser_password }}"
+          - "{{ services.pg_primary }}"
+          - psql
+          - -U
+          - "{{ pg_superuser_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "select client_addr, state from pg_stat_replication order by client_addr;"
+        chdir: "{{ demo_dir }}"
+      register: streaming_result
+      changed_when: false
+      no_log: true
+
+    - name: "Evidencia: pg_stat_replication (client_addr|state)"
+      ansible.builtin.debug:
+        var: streaming_result.stdout_lines
+
+    - name: Ambas réplicas deben estar en streaming
+      ansible.builtin.assert:
+        that:
+          - (ips.pg_replica_1 ~ '|streaming') in streaming_result.stdout_lines
+          - (ips.pg_replica_2 ~ '|streaming') in streaming_result.stdout_lines
+        fail_msg: "No ambas réplicas están en streaming: {{ streaming_result.stdout_lines }}"
+        success_msg: "Streaming OK: {{ streaming_result.stdout_lines }}"
+
+    # --- Lag por diferencia de LSN (D26) -----------------------------------
+    - name: Medir lag como diferencia de LSN contra el primario
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ pg_superuser_password }}"
+          - "{{ services.pg_primary }}"
+          - psql
+          - -U
+          - "{{ pg_superuser_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "select client_addr, pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) from pg_stat_replication order by client_addr;"
+        chdir: "{{ demo_dir }}"
+      register: lag_result
+      changed_when: false
+      no_log: true
+
+    - name: "Evidencia: lag medido en bytes de WAL (client_addr|lag_bytes); referencia LagAlto=D29={{ lag_alerta_bytes }}"
+      ansible.builtin.debug:
+        var: lag_result.stdout_lines
+
+    - name: El lag debe poder medirse como un entero de bytes por réplica
+      ansible.builtin.assert:
+        that:
+          - lag_result.stdout_lines | length >= 2
+          - lag_result.stdout_lines | map('regex_search', '^[0-9.]+\|[0-9]+$') | select('ne', none) | list | length == lag_result.stdout_lines | length
+        fail_msg: "El lag no se pudo medir como entero de bytes (LSN diff) para alguna réplica: {{ lag_result.stdout_lines }}"
+        success_msg: "Lag medido (bytes de WAL no confirmados, LSN diff): {{ lag_result.stdout_lines }}"
+
+    # --- app_writer escribe en el primario (se limpia siempre) -------------
+    - name: "app_writer: escribir y limpiar en el primario"
+      block:
+        - name: app_writer inserta una categoría de prueba
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - "--env-file"
+              - "../.env"
+              - exec
+              - -T
+              - -e
+              - "PGPASSWORD={{ app_writer_password }}"
+              - "{{ services.pg_primary }}"
+              - psql
+              - -U
+              - "{{ app_writer_user }}"
+              - -d
+              - "{{ postgres_db }}"
+              - -tAc
+              - "insert into categories(name) values ('{{ test_category_name }}') returning id;"
+            chdir: "{{ demo_dir }}"
+          register: writer_insert
+          changed_when: false
+          no_log: true
+
+        - name: "Evidencia: INSERT de app_writer"
+          ansible.builtin.debug:
+            var: writer_insert.stdout_lines
+
+        - name: app_writer debe poder insertar en el primario
+          ansible.builtin.assert:
+            that:
+              - writer_insert.rc == 0
+              - writer_insert.stdout_lines | length > 0
+              - (writer_insert.stdout_lines[0] | default('') | trim) is match('^[0-9]+$')
+            fail_msg: "app_writer no pudo insertar en categories (primario): {{ writer_insert.stderr }}"
+            success_msg: "app_writer insertó correctamente (id={{ writer_insert.stdout_lines[0] | default('?') }})."
+      always:
+        - name: Limpiar la categoría de prueba (siempre, para que el playbook sea repetible)
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - "--env-file"
+              - "../.env"
+              - exec
+              - -T
+              - -e
+              - "PGPASSWORD={{ pg_superuser_password }}"
+              - "{{ services.pg_primary }}"
+              - psql
+              - -U
+              - "{{ pg_superuser_user }}"
+              - -d
+              - "{{ postgres_db }}"
+              - -tAc
+              - "delete from categories where name = '{{ test_category_name }}';"
+            chdir: "{{ demo_dir }}"
+          changed_when: false
+          no_log: true
+
+    # --- app_reader lee pero su INSERT falla --------------------------------
+    - name: app_reader cuenta productos (debe funcionar)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ app_reader_password }}"
+          - "{{ services.pg_primary }}"
+          - psql
+          - -U
+          - "{{ app_reader_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "select count(*) from products;"
+        chdir: "{{ demo_dir }}"
+      register: reader_select
+      changed_when: false
+      no_log: true
+
+    - name: "Evidencia: SELECT de app_reader"
+      ansible.builtin.debug:
+        var: reader_select.stdout_lines
+
+    - name: app_reader debe poder leer products
+      ansible.builtin.assert:
+        that:
+          - reader_select.rc == 0
+          - (reader_select.stdout_lines[0] | default('') | trim) is match('^[0-9]+$')
+        fail_msg: "app_reader no pudo leer products: {{ reader_select.stderr }}"
+        success_msg: "app_reader leyó {{ reader_select.stdout_lines[0] }} productos."
+
+    - name: "app_reader intenta insertar (debe fallar: sin GRANT de INSERT)"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ app_reader_password }}"
+          - "{{ services.pg_primary }}"
+          - psql
+          - -U
+          - "{{ app_reader_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "insert into categories(name) values ('{{ test_category_name }}');"
+        chdir: "{{ demo_dir }}"
+      register: reader_insert
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: "Evidencia: INSERT de app_reader (se espera que falle)"
+      ansible.builtin.debug:
+        msg: "rc={{ reader_insert.rc }} stderr={{ reader_insert.stderr }}"
+
+    - name: El INSERT de app_reader debe ser rechazado por permisos
+      ansible.builtin.assert:
+        that:
+          - reader_insert.rc != 0
+          - "'permission denied' in reader_insert.stderr"
+        fail_msg: "app_reader pudo insertar en categories; no debería tener ese permiso."
+        success_msg: "app_reader fue rechazado al insertar, como se esperaba (permission denied)."
+
+    # --- Toda escritura en una réplica es rechazada (hot_standby) ----------
+    - name: "pg-replica-1: intentar escribir (debe fallar: hot_standby)"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ pg_superuser_password }}"
+          - "{{ services.pg_replica_1 }}"
+          - psql
+          - -U
+          - "{{ pg_superuser_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "insert into categories(name) values ('ansible-replica-write-test');"
+        chdir: "{{ demo_dir }}"
+      register: replica1_write
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: "Evidencia: escritura en pg-replica-1 (se espera que falle)"
+      ansible.builtin.debug:
+        msg: "rc={{ replica1_write.rc }} stderr={{ replica1_write.stderr }}"
+
+    - name: pg-replica-1 debe rechazar la escritura (hot_standby)
+      ansible.builtin.assert:
+        that:
+          - replica1_write.rc != 0
+          - "'read-only transaction' in replica1_write.stderr"
+        fail_msg: "pg-replica-1 aceptó una escritura; no debería (hot_standby)."
+        success_msg: "pg-replica-1 rechazó la escritura, como se esperaba (read-only transaction)."
+
+    - name: "pg-replica-2: intentar escribir (debe fallar: hot_standby)"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ pg_superuser_password }}"
+          - "{{ services.pg_replica_2 }}"
+          - psql
+          - -U
+          - "{{ pg_superuser_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "insert into categories(name) values ('ansible-replica-write-test');"
+        chdir: "{{ demo_dir }}"
+      register: replica2_write
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: "Evidencia: escritura en pg-replica-2 (se espera que falle)"
+      ansible.builtin.debug:
+        msg: "rc={{ replica2_write.rc }} stderr={{ replica2_write.stderr }}"
+
+    - name: pg-replica-2 debe rechazar la escritura (hot_standby)
+      ansible.builtin.assert:
+        that:
+          - replica2_write.rc != 0
+          - "'read-only transaction' in replica2_write.stderr"
+        fail_msg: "pg-replica-2 aceptó una escritura; no debería (hot_standby)."
+        success_msg: "pg-replica-2 rechazó la escritura, como se esperaba (read-only transaction)."
+
+    # --- monitor solo lee estadísticas ---------------------------------------
+    - name: monitor consulta pg_stat_replication (debe funcionar)
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ monitor_password }}"
+          - "{{ services.pg_primary }}"
+          - psql
+          - -U
+          - "{{ monitor_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "select client_addr, state from pg_stat_replication order by client_addr;"
+        chdir: "{{ demo_dir }}"
+      register: monitor_stats
+      changed_when: false
+      no_log: true
+
+    - name: "Evidencia: monitor lee pg_stat_replication"
+      ansible.builtin.debug:
+        var: monitor_stats.stdout_lines
+
+    - name: monitor debe poder leer estadísticas de replicación (pg_monitor)
+      ansible.builtin.assert:
+        that:
+          - monitor_stats.rc == 0
+        fail_msg: "monitor no pudo leer pg_stat_replication: {{ monitor_stats.stderr }}"
+        success_msg: "monitor leyó pg_stat_replication correctamente."
+
+    - name: "monitor intenta leer products (debe fallar: sin GRANT de SELECT)"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ monitor_password }}"
+          - "{{ services.pg_primary }}"
+          - psql
+          - -U
+          - "{{ monitor_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -tAc
+          - "select count(*) from products;"
+        chdir: "{{ demo_dir }}"
+      register: monitor_select
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: "Evidencia: SELECT de monitor sobre products (se espera que falle)"
+      ansible.builtin.debug:
+        msg: "rc={{ monitor_select.rc }} stderr={{ monitor_select.stderr }}"
+
+    - name: monitor no debe poder leer products
+      ansible.builtin.assert:
+        that:
+          - monitor_select.rc != 0
+          - "'permission denied' in monitor_select.stderr"
+        fail_msg: "monitor pudo leer products; no debería tener ese permiso."
+        success_msg: "monitor fue rechazado al leer products, como se esperaba (permission denied)."

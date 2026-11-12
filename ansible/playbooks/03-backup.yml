@@ -1,0 +1,146 @@
+# 03-backup.yml — A5.3: pg_dump del primario (texto plano, nunca se
+# versiona: ver .gitignore) y copia con marca de tiempo de las
+# configuraciones (compose, prometheus, alerts, dashboard, scripts) a
+# backups/. El .env real NUNCA se copia.
+---
+- name: "Fase 5 — Backup del laboratorio"
+  hosts: controlador
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../vars/lab.yml
+
+  tasks:
+    - name: Leer credenciales del superusuario desde el entorno
+      ansible.builtin.set_fact:
+        pg_superuser_user: "{{ lookup('env', 'PG_SUPERUSER_USER') | default('postgres', true) }}"
+        pg_superuser_password: "{{ lookup('env', 'PG_SUPERUSER_PASSWORD') }}"
+      no_log: true
+
+    - name: Verificar que pg-primary está corriendo
+      ansible.builtin.command:
+        argv: [docker, ps, "--filter", "name={{ containers.pg_primary }}", "--format", "{{ '{{.Names}}' }}"]
+      register: primary_running
+      changed_when: false
+
+    - name: pg-primary debe estar corriendo para poder respaldarlo
+      ansible.builtin.assert:
+        that:
+          - containers.pg_primary in primary_running.stdout_lines
+        fail_msg: "pg-primary no está corriendo (levantar algún escenario con 'make up-base|up-r1|up-r2' antes de hacer backup)."
+        success_msg: "pg-primary está corriendo."
+
+    - name: Marca de tiempo del backup (UTC)
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ now(utc=true).strftime('%Y%m%dT%H%M%SZ') }}"
+
+    - name: Crear carpeta de configuración con marca de tiempo
+      ansible.builtin.file:
+        path: "{{ backups_dir }}/config-{{ backup_timestamp }}"
+        state: directory
+        mode: "0755"
+
+    # --- pg_dump del primario (texto plano, dentro del contenedor) ---------
+    - name: "pg_dump del primario (dentro del contenedor, texto plano)"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - -e
+          - "PGPASSWORD={{ pg_superuser_password }}"
+          - "{{ services.pg_primary }}"
+          - pg_dump
+          - -U
+          - "{{ pg_superuser_user }}"
+          - -d
+          - "{{ postgres_db }}"
+          - -f
+          - "/tmp/dbscale-{{ backup_timestamp }}.sql"
+        chdir: "{{ demo_dir }}"
+      no_log: true
+
+    - name: "Copiar el dump fuera del contenedor (docker cp evita pasar binario/texto grande por stdout de Ansible)"
+      ansible.builtin.command:
+        argv:
+          - docker
+          - cp
+          - "{{ containers.pg_primary }}:/tmp/dbscale-{{ backup_timestamp }}.sql"
+          - "{{ backups_dir }}/dbscale-{{ backup_timestamp }}.sql"
+
+    - name: Limpiar el dump temporal dentro del contenedor
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - "--env-file"
+          - "../.env"
+          - exec
+          - -T
+          - "{{ services.pg_primary }}"
+          - rm
+          - -f
+          - "/tmp/dbscale-{{ backup_timestamp }}.sql"
+        chdir: "{{ demo_dir }}"
+      changed_when: false
+
+    # --- Copia de configuraciones (nunca .env real) -------------------------
+    - name: Copiar demo/docker-compose.yml
+      ansible.builtin.copy:
+        src: "{{ demo_dir }}/docker-compose.yml"
+        dest: "{{ backups_dir }}/config-{{ backup_timestamp }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Copiar configuración de Prometheus (prometheus.yml, alerts.yml)
+      ansible.builtin.copy:
+        src: "{{ demo_dir }}/prometheus/"
+        dest: "{{ backups_dir }}/config-{{ backup_timestamp }}/prometheus/"
+        mode: "0644"
+
+    - name: Copiar dashboards de Grafana
+      ansible.builtin.copy:
+        src: "{{ demo_dir }}/grafana/dashboards/"
+        dest: "{{ backups_dir }}/config-{{ backup_timestamp }}/grafana/dashboards/"
+        mode: "0644"
+
+    - name: Copiar scripts de demo/scripts
+      ansible.builtin.copy:
+        src: "{{ demo_dir }}/scripts/"
+        dest: "{{ backups_dir }}/config-{{ backup_timestamp }}/scripts/"
+        mode: "0755"
+
+    # --- Evidencia final -----------------------------------------------------
+    - name: Tamaño del dump
+      ansible.builtin.stat:
+        path: "{{ backups_dir }}/dbscale-{{ backup_timestamp }}.sql"
+      register: dump_stat
+
+    - name: Listar archivos de configuración copiados
+      ansible.builtin.find:
+        paths: "{{ backups_dir }}/config-{{ backup_timestamp }}"
+        recurse: true
+      register: config_files
+
+    - name: "Evidencia: backup generado"
+      ansible.builtin.debug:
+        msg:
+          - "dump: {{ backups_dir }}/dbscale-{{ backup_timestamp }}.sql ({{ dump_stat.stat.size }} bytes)"
+          - "config: {{ config_files.files | map(attribute='path') | list }}"
+
+    - name: El dump debe existir y no estar vacío
+      ansible.builtin.assert:
+        that:
+          - dump_stat.stat.exists
+          - dump_stat.stat.size > 0
+        fail_msg: "El dump no se generó o quedó vacío."
+        success_msg: "Dump OK: {{ dump_stat.stat.size }} bytes."
+
+    - name: Debe haberse copiado al menos un archivo de configuración
+      ansible.builtin.assert:
+        that:
+          - config_files.files | length > 0
+        fail_msg: "No se copió ningún archivo de configuración a backups/."
+        success_msg: "Se copiaron {{ config_files.files | length }} archivos de configuración."

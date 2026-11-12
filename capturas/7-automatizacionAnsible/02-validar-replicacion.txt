@@ -1,0 +1,172 @@
+
+PLAY [Fase 5 — Validar replicación y permisos] *********************************
+
+TASK [Leer credenciales desde el entorno] **************************************
+ok: [localhost]
+
+TASK [Verificar que pg-replica-1 está corriendo] *******************************
+ok: [localhost]
+
+TASK [Verificar que pg-replica-2 está corriendo] *******************************
+ok: [localhost]
+
+TASK [Evidencia: réplicas corriendo] *******************************************
+ok: [localhost] => {
+    "msg": [
+        "pg-replica-1: ['dbscale-pg-replica-1']",
+        "pg-replica-2: ['dbscale-pg-replica-2']"
+    ]
+}
+
+TASK [Este playbook requiere el escenario r2 (ambas réplicas arriba)] **********
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Escenario r2 confirmado: ambas réplicas están corriendo."
+}
+
+TASK [Consultar pg_stat_replication en el primario] ****************************
+ok: [localhost]
+
+TASK [Evidencia: pg_stat_replication (client_addr|state)] **********************
+ok: [localhost] => {
+    "streaming_result.stdout_lines": [
+        "10.30.1.10|streaming",
+        "10.31.1.10|streaming"
+    ]
+}
+
+TASK [Ambas réplicas deben estar en streaming] *********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Streaming OK: ['10.30.1.10|streaming', '10.31.1.10|streaming']"
+}
+
+TASK [Medir lag como diferencia de LSN contra el primario] *********************
+ok: [localhost]
+
+TASK [Evidencia: lag medido en bytes de WAL (client_addr|lag_bytes); referencia LagAlto=D29=20480] ***
+ok: [localhost] => {
+    "lag_result.stdout_lines": [
+        "10.30.1.10|0",
+        "10.31.1.10|0"
+    ]
+}
+
+TASK [El lag debe poder medirse como un entero de bytes por réplica] ***********
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Lag medido (bytes de WAL no confirmados, LSN diff): ['10.30.1.10|0', '10.31.1.10|0']"
+}
+
+TASK [app_writer inserta una categoría de prueba] ******************************
+ok: [localhost]
+
+TASK [Evidencia: INSERT de app_writer] *****************************************
+ok: [localhost] => {
+    "writer_insert.stdout_lines": [
+        "11",
+        "INSERT 0 1"
+    ]
+}
+
+TASK [app_writer debe poder insertar en el primario] ***************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "app_writer insertó correctamente (id=11)."
+}
+
+TASK [Limpiar la categoría de prueba (siempre, para que el playbook sea repetible)] ***
+ok: [localhost]
+
+TASK [app_reader cuenta productos (debe funcionar)] ****************************
+ok: [localhost]
+
+TASK [Evidencia: SELECT de app_reader] *****************************************
+ok: [localhost] => {
+    "reader_select.stdout_lines": [
+        "500000"
+    ]
+}
+
+TASK [app_reader debe poder leer products] *************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "app_reader leyó 500000 productos."
+}
+
+TASK [app_reader intenta insertar (debe fallar: sin GRANT de INSERT)] **********
+ok: [localhost]
+
+TASK [Evidencia: INSERT de app_reader (se espera que falle)] *******************
+ok: [localhost] => {
+    "msg": "rc=1 stderr=ERROR:  permission denied for table categories"
+}
+
+TASK [El INSERT de app_reader debe ser rechazado por permisos] *****************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "app_reader fue rechazado al insertar, como se esperaba (permission denied)."
+}
+
+TASK [pg-replica-1: intentar escribir (debe fallar: hot_standby)] **************
+ok: [localhost]
+
+TASK [Evidencia: escritura en pg-replica-1 (se espera que falle)] **************
+ok: [localhost] => {
+    "msg": "rc=1 stderr=ERROR:  cannot execute INSERT in a read-only transaction"
+}
+
+TASK [pg-replica-1 debe rechazar la escritura (hot_standby)] *******************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "pg-replica-1 rechazó la escritura, como se esperaba (read-only transaction)."
+}
+
+TASK [pg-replica-2: intentar escribir (debe fallar: hot_standby)] **************
+ok: [localhost]
+
+TASK [Evidencia: escritura en pg-replica-2 (se espera que falle)] **************
+ok: [localhost] => {
+    "msg": "rc=1 stderr=ERROR:  cannot execute INSERT in a read-only transaction"
+}
+
+TASK [pg-replica-2 debe rechazar la escritura (hot_standby)] *******************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "pg-replica-2 rechazó la escritura, como se esperaba (read-only transaction)."
+}
+
+TASK [monitor consulta pg_stat_replication (debe funcionar)] *******************
+ok: [localhost]
+
+TASK [Evidencia: monitor lee pg_stat_replication] ******************************
+ok: [localhost] => {
+    "monitor_stats.stdout_lines": [
+        "10.30.1.10|streaming",
+        "10.31.1.10|streaming"
+    ]
+}
+
+TASK [monitor debe poder leer estadísticas de replicación (pg_monitor)] ********
+ok: [localhost] => {
+    "changed": false,
+    "msg": "monitor leyó pg_stat_replication correctamente."
+}
+
+TASK [monitor intenta leer products (debe fallar: sin GRANT de SELECT)] ********
+ok: [localhost]
+
+TASK [Evidencia: SELECT de monitor sobre products (se espera que falle)] *******
+ok: [localhost] => {
+    "msg": "rc=1 stderr=ERROR:  permission denied for table products"
+}
+
+TASK [monitor no debe poder leer products] *************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "monitor fue rechazado al leer products, como se esperaba (permission denied)."
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=33   changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

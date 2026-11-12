@@ -1,0 +1,71 @@
+
+PLAY [Fase 5 — Backup del laboratorio] *****************************************
+
+TASK [Leer credenciales del superusuario desde el entorno] *********************
+ok: [localhost]
+
+TASK [Verificar que pg-primary está corriendo] *********************************
+ok: [localhost]
+
+TASK [pg-primary debe estar corriendo para poder respaldarlo] ******************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "pg-primary está corriendo."
+}
+
+TASK [Marca de tiempo del backup (UTC)] ****************************************
+ok: [localhost]
+
+TASK [Crear carpeta de configuración con marca de tiempo] **********************
+changed: [localhost]
+
+TASK [pg_dump del primario (dentro del contenedor, texto plano)] ***************
+changed: [localhost]
+
+TASK [Copiar el dump fuera del contenedor (docker cp evita pasar binario/texto grande por stdout de Ansible)] ***
+changed: [localhost]
+
+TASK [Limpiar el dump temporal dentro del contenedor] **************************
+ok: [localhost]
+
+TASK [Copiar demo/docker-compose.yml] ******************************************
+changed: [localhost]
+
+TASK [Copiar configuración de Prometheus (prometheus.yml, alerts.yml)] *********
+changed: [localhost]
+
+TASK [Copiar dashboards de Grafana] ********************************************
+changed: [localhost]
+
+TASK [Copiar scripts de demo/scripts] ******************************************
+changed: [localhost]
+
+TASK [Tamaño del dump] *********************************************************
+ok: [localhost]
+
+TASK [Listar archivos de configuración copiados] *******************************
+ok: [localhost]
+
+TASK [Evidencia: backup generado] **********************************************
+ok: [localhost] => {
+    "msg": [
+        "dump: /home/tincho/dev/goys-tp-integrador-g02/ansible/playbooks/../../backups/dbscale-20261111T230838Z.sql (47181920 bytes)",
+        "config: ['/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/docker-compose.yml', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/prometheus/alerts.yml', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/prometheus/prometheus.yml', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/scripts/escenarios.sh', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/scripts/promote-replica-1.sh', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/scripts/corte-replica.sh', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/scripts/netem.sh', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/scripts/reset-estado.sh', '/home/tincho/dev/goys-tp-integrador-g02/backups/config-20261111T230838Z/grafana/dashboards/db-scale-lab.json']"
+    ]
+}
+
+TASK [El dump debe existir y no estar vacío] ***********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Dump OK: 47181920 bytes."
+}
+
+TASK [Debe haberse copiado al menos un archivo de configuración] ***************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "Se copiaron 9 archivos de configuración."
+}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=17   changed=7    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

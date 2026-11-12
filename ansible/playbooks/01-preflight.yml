@@ -1,0 +1,192 @@
+# 01-preflight.yml — A5.1: Docker/Compose presentes, imágenes con versión
+# fija ya descargadas, puertos 3000/9091 libres (o nuestros), RAM/CPU
+# suficientes, y una prueba de ruteo entre segmentos. Playbook de solo
+# lectura: no deja cambios permanentes (ver D32 sobre la rama "stack abajo").
+---
+- name: "Fase 5 — Preflight del laboratorio"
+  hosts: controlador
+  connection: local
+  gather_facts: false
+  vars_files:
+    - ../vars/lab.yml
+
+  tasks:
+    # --- Docker y Compose presentes -----------------------------------
+    - name: Verificar versión de Docker
+      ansible.builtin.command:
+        argv: [docker, --version]
+      register: docker_version
+      changed_when: false
+
+    - name: "Evidencia: docker --version"
+      ansible.builtin.debug:
+        var: docker_version.stdout
+
+    - name: Docker debe estar instalado
+      ansible.builtin.assert:
+        that:
+          - docker_version.rc == 0
+          - "'Docker version' in docker_version.stdout"
+        fail_msg: "Docker no está instalado o no respondió como se esperaba."
+        success_msg: "Docker presente: {{ docker_version.stdout }}"
+
+    - name: Verificar versión de Docker Compose
+      ansible.builtin.command:
+        argv: [docker, compose, version]
+      register: compose_version
+      changed_when: false
+
+    - name: "Evidencia: docker compose version"
+      ansible.builtin.debug:
+        var: compose_version.stdout
+
+    - name: Docker Compose debe estar instalado
+      ansible.builtin.assert:
+        that:
+          - compose_version.rc == 0
+          - "'Docker Compose version' in compose_version.stdout"
+        fail_msg: "Docker Compose no está instalado o no respondió como se esperaba."
+        success_msg: "Docker Compose presente: {{ compose_version.stdout }}"
+
+    # --- Imágenes con versión fija ya descargadas (D10) ----------------
+    - name: Listar imágenes locales
+      ansible.builtin.command:
+        argv: [docker, images, "--format", "{{ '{{.Repository}}:{{.Tag}}' }}"]
+      register: docker_images
+      changed_when: false
+
+    - name: "Evidencia: imágenes locales"
+      ansible.builtin.debug:
+        var: docker_images.stdout_lines
+
+    - name: Cada imagen requerida debe estar ya descargada, con tag fijo
+      ansible.builtin.assert:
+        that:
+          - item in docker_images.stdout_lines
+        fail_msg: "Falta descargar la imagen {{ item }} (docker compose pull / build)."
+        success_msg: "Imagen presente: {{ item }}"
+      loop: "{{ required_images }}"
+      loop_control:
+        label: "{{ item }}"
+
+    # --- RAM y CPU suficientes ------------------------------------------
+    - name: Contar CPUs del host
+      ansible.builtin.command:
+        argv: [nproc]
+      register: cpu_count
+      changed_when: false
+
+    - name: Medir memoria del host
+      ansible.builtin.command:
+        argv: [free, -m]
+      register: mem_info
+      changed_when: false
+
+    - name: "Evidencia: CPUs y memoria"
+      ansible.builtin.debug:
+        msg:
+          - "CPUs: {{ cpu_count.stdout | trim }}"
+          - "free -m: {{ mem_info.stdout_lines }}"
+
+    - name: Debe haber al menos {{ preflight_min_cpus }} CPUs
+      ansible.builtin.assert:
+        that:
+          - (cpu_count.stdout | trim | int) >= preflight_min_cpus
+        fail_msg: "Solo {{ cpu_count.stdout | trim }} CPUs disponibles, se requieren {{ preflight_min_cpus }}."
+        success_msg: "CPUs OK: {{ cpu_count.stdout | trim }} >= {{ preflight_min_cpus }}"
+
+    - name: "Debe haber al menos {{ preflight_min_ram_mb }} MB de RAM disponible"
+      ansible.builtin.assert:
+        that:
+          - (mem_info.stdout_lines[1].split() | length) >= 7
+          - (mem_info.stdout_lines[1].split()[6] | int) >= preflight_min_ram_mb
+        fail_msg: "Memoria disponible insuficiente (ver columna 'available' de free -m: {{ mem_info.stdout_lines[1] }})."
+        success_msg: "RAM disponible OK: {{ mem_info.stdout_lines[1].split()[6] }} MB"
+
+    # --- Puertos 3000 (Grafana) y 9091 (Prometheus) ---------------------
+    - name: "Revisar puertos publicados (3000 Grafana, 9091 Prometheus)"
+      ansible.builtin.include_tasks: tasks/check_port.yml
+      loop:
+        - { port: "{{ published_ports.grafana }}", expected_container: "{{ containers.grafana }}" }
+        - { port: "{{ published_ports.prometheus }}", expected_container: "{{ containers.prometheus }}" }
+      loop_control:
+        loop_var: port_check
+        label: "puerto {{ port_check.port }}"
+      vars:
+        check_port: "{{ port_check.port }}"
+        expected_container: "{{ port_check.expected_container }}"
+
+    # --- Prueba de ruteo entre segmentos (D32) ---------------------------
+    # test-red (Fase 1) usa las mismas IPs fijas que los nodos reales: nunca
+    # puede correr junto al stack real. Se detecta el estado y se elige la
+    # rama correspondiente, siempre probando el mismo flujo de negocio ya
+    # permitido en FIREWALL_MODE=strict (API -> primario:5432), para no
+    # tener que tocar el modo del firewall.
+    - name: "Ruteo: ¿el stack real está arriba?"
+      ansible.builtin.command:
+        argv: [docker, ps, "--filter", "name={{ containers.router }}", "--format", "{{ '{{.Names}}' }}"]
+      register: router_running
+      changed_when: false
+
+    - name: Fijar si el stack está arriba
+      ansible.builtin.set_fact:
+        stack_arriba: "{{ containers.router in router_running.stdout_lines }}"
+
+    - name: "Evidencia: estado del stack"
+      ansible.builtin.debug:
+        msg: "stack_arriba={{ stack_arriba }} (router_running={{ router_running.stdout_lines }})"
+
+    - name: "Ruteo (stack arriba): net-app -> net-db-primaria vía router, desde sc-api"
+      ansible.builtin.command:
+        argv: [docker, exec, "{{ containers.sc_api }}", nc, -zv, -w2, "{{ ips.pg_primary }}", "5432"]
+      register: route_test_arriba
+      changed_when: false
+      when: stack_arriba
+
+    - name: "Evidencia: ruteo con stack arriba"
+      ansible.builtin.debug:
+        var: route_test_arriba
+      when: stack_arriba
+
+    - name: "El ruteo net-app -> net-db-primaria debe funcionar (stack arriba)"
+      ansible.builtin.assert:
+        that:
+          - route_test_arriba.rc == 0
+        fail_msg: "No se pudo rutear desde sc-api (net-app) hasta {{ ips.pg_primary }}:5432 (net-db-primaria) a través del router."
+        success_msg: "Ruteo OK (stack arriba): sc-api -> {{ ips.pg_primary }}:5432"
+      when: stack_arriba
+
+    - name: "Ruteo (stack abajo): levantar test-red mínimo, probar y repliegar"
+      when: not stack_arriba
+      block:
+        - name: Levantar router + t-app + t-db (perfil test-red)
+          ansible.builtin.command:
+            argv: [docker, compose, "--env-file", "../.env", "--profile", "test-red", up, -d, router, t-app, t-db]
+            chdir: "{{ demo_dir }}"
+          changed_when: false
+
+        - name: "Ruteo: net-app -> net-db-primaria vía router, desde t-app"
+          ansible.builtin.command:
+            argv: [docker, exec, "{{ containers.t_app }}", nc, -zv, -w2, "{{ ips.pg_primary }}", "5432"]
+          register: route_test_abajo
+          changed_when: false
+          retries: 5
+          delay: 2
+          until: route_test_abajo.rc == 0
+
+        - name: "Evidencia: ruteo con stack abajo (test-red)"
+          ansible.builtin.debug:
+            var: route_test_abajo
+
+        - name: "El ruteo net-app -> net-db-primaria debe funcionar (test-red)"
+          ansible.builtin.assert:
+            that:
+              - route_test_abajo.rc == 0
+            fail_msg: "No se pudo rutear desde t-app (net-app) hasta {{ ips.pg_primary }}:5432 (net-db-primaria) a través del router (test-red)."
+            success_msg: "Ruteo OK (test-red): t-app -> {{ ips.pg_primary }}:5432"
+      always:
+        - name: "Repliegar test-red (nunca -v): deja el stack como estaba (abajo)"
+          ansible.builtin.command:
+            argv: [docker, compose, "--env-file", "../.env", "--profile", "test-red", down]
+            chdir: "{{ demo_dir }}"
+          changed_when: false

@@ -32,7 +32,7 @@ Relevado en solo lectura el 9/11/2026. Todo lo de abajo está **verificado**, sa
 
 ## Herramientas del host
 - `make` 4.4.1 y `python3` 3.14.4 instalados (la app corre en contenedor, la versión del host no importa).
-- **Sin `pip`, `ansible` ni `k6`** en el host. k6 corre en contenedor. Ansible lo instala una persona (`sudo apt install -y ansible`) antes de la fase 5.
+- **Ansible `2.20.1` ya instalado** (verificado en fase 5: la tarea manual de fase 0 se cumplió). **Sin `pip` ni `k6`** en el host; k6 sigue corriendo en contenedor, sin cambios ahí.
 
 ## Resultados de las pruebas de red
 | Prueba | Resultado |

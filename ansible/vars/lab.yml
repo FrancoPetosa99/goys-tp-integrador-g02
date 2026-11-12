@@ -1,0 +1,81 @@
+# Variables centralizadas de la Fase 5 (convención de fases.md: "variables
+# centralizadas en ansible/vars/lab.yml"). Todo lo que hay acá sale de
+# demo/docker-compose.yml, demo/postgres/* y .ai/conocimiento/entorno.md —
+# nada inventado. Nunca se guardan secretos acá: las credenciales se leen en
+# runtime con `lookup('env', 'VARNAME')`, porque el Makefile carga .env al
+# entorno antes de invocar ansible-playbook.
+
+# repo_root se calcula desde la ubicación del playbook (ansible/playbooks/),
+# nunca se hardcodea una ruta absoluta: así corre igual en esta máquina y en
+# la laptop Linux del grupo (A6.3).
+repo_root: "{{ playbook_dir }}/../.."
+demo_dir: "{{ repo_root }}/demo"
+backups_dir: "{{ repo_root }}/backups"
+
+# Nombres de servicio de Compose (para "docker compose exec", que pide el
+# nombre de servicio, no el container_name).
+services:
+  pg_primary: pg-primary
+  pg_replica_1: pg-replica-1
+  pg_replica_2: pg-replica-2
+  api: api
+  k6: k6
+
+# Nombres de contenedor, literales de demo/docker-compose.yml.
+containers:
+  router: dbscale-router
+  pg_primary: dbscale-pg-primary
+  pg_replica_1: dbscale-pg-replica-1
+  pg_replica_2: dbscale-pg-replica-2
+  sc_api: dbscale-sc-api
+  grafana: dbscale-grafana
+  prometheus: dbscale-prometheus
+  t_app: dbscale-t-app
+  t_db: dbscale-t-db
+
+# IPs fijas, literales de demo/docker-compose.yml.
+ips:
+  pg_primary: 10.20.1.10
+  pg_replica_1: 10.30.1.10
+  pg_replica_2: 10.31.1.10
+  api: 10.10.1.10
+
+# Puertos publicados al host (D9): solo estos dos, ninguna base de datos.
+published_ports:
+  grafana: 3000
+  prometheus: 9091
+
+# Base de datos y esquema (demo/postgres/init.sql).
+postgres_db: dbscale
+business_tables: [categories, products]
+
+# Imágenes con versión fija exigidas (entorno.md + dbscale/router y
+# dbscale/api). Prohibido "latest" (D10).
+required_images:
+  - "alpine:3.24.4"
+  - "postgres:17.11"
+  - "grafana/k6:2.3.0"
+  - "prom/prometheus:v3.16.0"
+  - "grafana/grafana:13.3.0"
+  - "prometheuscommunity/postgres-exporter:v0.20.1"
+  - "gcr.io/cadvisor/cadvisor:v0.55.1"
+  - "dbscale/router:0.1.0"
+  - "dbscale/api:0.1.0"
+
+# Umbrales de cordura para 01-preflight (A5.1). No son la suma de los límites
+# por contenedor de .env (eso lo fija D11) sino un piso razonable sobre los
+# recursos del host, para detectar una máquina claramente insuficiente.
+preflight_min_cpus: 4
+preflight_min_ram_mb: 4096
+
+# Umbral de referencia de LagAlto (D29), solo para mostrarlo junto al lag
+# medido en 02-validar-replicacion.yml. No se usa como assert estricto:
+# el lag real depende de si hay latencia de red inyectada en ese momento
+# (D6/D26), y un umbral duro ahí daría falsos negativos.
+lag_alerta_bytes: 20480
+
+# Nombre de categoría usado por las pruebas de permisos de app_writer /
+# app_reader (02-validar-replicacion.yml). Se limpia siempre en el mismo
+# playbook para que correrlo dos veces seguidas no choque con el UNIQUE de
+# categories.name (A5.4).
+test_category_name: "ansible-validacion-temp"

@@ -45,7 +45,16 @@
 | 11/11 |  Fase 4: scripts de latencia (netem), corte de réplica y escenarios, variables nuevas en .env.example y capturas de lag vs latencia y read-after-write | Franco | feat(demo) + docs(capturas) | 
 | 11/11 |  Fase 4: script de failover manual promote-replica-1.sh (promueve la réplica 1 y repunta la VIP, idempotente) | Isabella | feat(demo) | 
 | 11/11 |  Fase 4: alertas PrimarioCaido, ReplicaCaida y LagAlto, paneles de rol, estado y lag, y escenarios k6 de escritura intensiva y read-after-write | Agustín | feat(monitoreo) + feat(k6) | 
-| 11/11 |  Fase 4: resultados de los experimentos 2, 3 y 4 y 6 capturas de réplica caída y failover | Sofía | docs + docs(capturas) | 
+| 11/11 |  Fase 4: resultados de los experimentos 2, 3 y 4 y 6 capturas de réplica caída y failover | Sofía | docs + docs(capturas) |
+| 11/11 |  Fase 5: Makefile para orquestar escenarios, pruebas, backup y limpieza, y runbook operativo | Martín | feat(demo) + docs(documento) | 
+| 11/11 |  Fase 5: configuración e inventario de Ansible y variables centralizadas del laboratorio | Franco | feat(ansible) x2 | 
+| 11/11 |  Fase 5: playbook de backup del primario y de las configuraciones, y estructura de backups/ | Isabella | feat(ansible) + chore(demo) | 
+| 11/11 |  Fase 5: playbook de validación de streaming, lag por LSN y permisos de los roles | Agustín | feat(ansible) | 
+| 11/11 |  Fase 5: playbook de preflight, decisión D32 y evidencias de los 3 playbooks | Sofía | feat(ansible) + docs(repo) + docs(capturas) | 
+
+
+
+
 
 ## 🚧 Pendientes / decisiones
 
