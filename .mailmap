@@ -7,14 +7,28 @@
 # (ver `git help mailmap` para variantes con alias)
 #
 # Emails cargados por las personas (el agente no los inventa). El de
-# Isabella quedó marcado como pendiente de confirmación (ver más abajo).
+# Isabella ya quedó confirmado: tiene 10 commits reales bajo ese email.
+#
+# Fase 6 (A6.4): además de la línea de 4 campos (que solo matchea cuando el
+# nombre de commit coincide exactamente), cada persona tiene también una
+# línea de 2 campos ("Nombre canónico <mail canónico>") para que CUALQUIER
+# variante de nombre de commit que use ese mismo mail colapse igual — así
+# se resolvieron los casos reales `FrancoPetosa99 <franco.petosa15@gmail.com>`
+# y `tinchoeliseche <tinchoeliseche@gmail.com>` (minúscula), que con solo la
+# línea de 4 campos quedaban sin mapear (ver `git shortlog -sne --all`).
 
+Eliseche, Martín <tinchoeliseche@gmail.com>
 Eliseche, Martín <tinchoeliseche@gmail.com> MartinEliseche <tinchoeliseche@gmail.com>
+
+Petosa Ayala, Franco <franco.petosa15@gmail.com>
 Petosa Ayala, Franco <franco.petosa15@gmail.com> Franco Petosa Ayala <84604362+FrancoPetosa99@users.noreply.github.com>
 
-# Mail a confirmar por Isabella (corregido de un typo ".con" a ".com" al
-# recibir el dato; confirmar antes de su primer commit):
 Bresciani, Isabella <brescianisa@gmail.com>
 
 Gutierrez Mora, Agustín <agugutierrezz27@gmail.com>
+
 Kalpin, Sofía <sofikalpin@hotmail.com>
+
+# No se mapea a propósito: hay un commit de un usuario externo al grupo
+# (user.name "rodriguezemautn", probable docente, no es integrante), que
+# queda aparte en `git shortlog -sne --all` sin alias ni mapeo.
