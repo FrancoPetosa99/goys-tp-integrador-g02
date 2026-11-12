@@ -54,6 +54,8 @@
 | 12/11 |  Fase 6: decisiones D33 a D35, verificación de la demo (3 ciclos en WSL2) en entorno.md y reparto de commits de la fase | Martín | docs(repo) + docs(progreso) | 
 | 12/11 |  Fase 6: diagrama real de la arquitectura (`imagen-diagrama.png`) y su referencia en `topologia.md` | Franco | docs(diagramas) x2 | 
 | 12/11 |  Fase 6: checklist de entrega con solo ítems verificados y corrección del `.mailmap` para los 5 integrantes | Isabella | docs(repo) + fix(repo) | 
+| 12/11 |  Fase 6: README final con estado real, Makefile, estructura y resultados medidos | Agustín | docs(repo) | 
+
 
 
 
