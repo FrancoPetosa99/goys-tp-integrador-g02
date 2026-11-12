@@ -124,3 +124,7 @@ A1.4 (ping/traceroute entre segmentos) se verifica en modo permisivo; A1.5 en ad
 ## 6. Resultado verificado de D3 / D3b
 
 D3 quedó **completamente verificado** en Fase 1: con `nat-unprotected` + `enable_ip_masquerade: "false"` el ruteo entre segmentos funciona (A1.4), la publicación de puertos al host funciona (A1.8: un nodo de prueba en `net-mon` con `ports: "3000:80"` respondió a `nc -zv -w2 localhost 3000`), y ninguna red tiene salida a Internet (A1.6: `ping -c1 -W2 1.1.1.1` falló desde `t-clientes`, `t-db` y el propio router). El plan B **D3b no hizo falta aplicarlo**.
+
+## 7. Diagrama de la arquitectura real (Fase 6)
+
+`diagramas/imagen-diagrama.png` es la versión renderizada (PNG) de esta misma topología, tomada directamente de `demo/docker-compose.yml` y de las decisiones D1-D32 (no de la propuesta original): las 6 subredes de arriba, el router, la VIP de escritura, el primario, las dos réplicas y el bloque de monitoreo, con el patrón de sidecars (D5) indicado. Es la imagen que usan el documento final y el póster.
