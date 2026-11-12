@@ -51,14 +51,17 @@
 | 11/11 |  Fase 5: playbook de backup del primario y de las configuraciones, y estructura de backups/ | Isabella | feat(ansible) + chore(demo) | 
 | 11/11 |  Fase 5: playbook de validación de streaming, lag por LSN y permisos de los roles | Agustín | feat(ansible) | 
 | 11/11 |  Fase 5: playbook de preflight, decisión D32 y evidencias de los 3 playbooks | Sofía | feat(ansible) + docs(repo) + docs(capturas) | 
-
+| 12/11 |  Fase 6: decisiones D33 a D35, verificación de la demo (3 ciclos en WSL2) en entorno.md y reparto de commits de la fase | Martín | docs(repo) + docs(progreso) | 
 
 
 
 
 ## 🚧 Pendientes / decisiones
 
-- [ ] Instalar Ansible en la máquina de trabajo (`sudo apt install -y ansible`)
+- [ ] Probar los 3 ciclos de arranque/apagado de la demo (escenario r2) en la laptop Linux del grupo — ver `.ai/conocimiento/entorno.md`, sección "Verificación Fase 6 — A6.3" (ya corrido 3 veces en WSL2)
+- [ ] Repetir al menos un ciclo con la Wi-Fi cortada físicamente (en WSL2 y en la laptop Linux), como prueba adicional de "sin Internet" más allá de `--pull never`
+- [ ] Practicar la guía de demo de stand (`documento/guia-demo-stand.md`) con cronómetro antes de la Feria
+- [ ] Imprimir el póster A1 y revisar que el QR escanee bien en papel
 
 ## 📝 Notas
 
