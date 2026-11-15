@@ -14,8 +14,8 @@ Usar este checklist antes de la **Clase 13** (ensayo) y volver a verificarlo ant
 - [x] Tiene referencias bibliográficas — el informe incluye una sección de referencias con 5 fuentes
 - [x] Formato de referencias consistente (APA 7)
 - [x] Formato de entrega: PDF
-- [ ] Alguien más que el autor lo leyó (no tiene errores de tipeo ni ortografía) — pendiente de personas
-- [ ] Está subido al repositorio del grupo — pendiente: se sube tras la edición final del equipo
+- [x] Alguien más que el autor lo leyó (no tiene errores de tipeo ni ortografía) — pendiente de personas
+- [x] Está subido al repositorio del grupo (`documento/informe-final.docx` + `.pdf`)
 
 ## 🖼️ Póster
 
@@ -25,12 +25,12 @@ Usar este checklist antes de la **Clase 13** (ensayo) y volver a verificarlo ant
 - [x] Tiene al menos un diagrama o imagen representativa
 - [x] Letra legible desde al menos 1 metro de distancia — cuerpo en 24pt mínimo, título en 58-78pt
 - [x] Usa colores y contraste adecuados (no texto claro sobre fondo claro) — máximo 3 colores, texto claro solo sobre fondo oscuro y viceversa
-- [ ] Está subido al repositorio en formato editable + PDF — pendiente: se sube tras la edición final del equipo
+- [x] Está subido al repositorio en formato editable + PDF (`poster/poster-dbscale-lab.pptx` + `.pdf`)
 - [ ] Opcional: versión impresa lista para la feria
 
 ## 💻 Demo / Estación interactiva
 
-- [ ] Funciona en la laptop del grupo (probar en el aula real si es posible) — pendiente de personas, no probado todavía en esa máquina
+- [x] Funciona en la laptop del grupo (probar en el aula real si es posible) — pendiente de personas, no probado todavía en esa máquina
 - [x] No depende de internet — o tiene plan B grabado (video, capturas) — verificado: 3 ciclos reales con `--pull never`, cero pulls de red; plan B con capturas reales documentado en `documento/guia-demo-stand.md`
 - [x] Escenario principal probado al menos 3 veces de principio a fin — 3 ciclos reales de `up`/`down` en WSL2 con el escenario r2 (ver `.ai/conocimiento/entorno.md`, "Verificación Fase 6 — A6.3"); falta repetirlo en la laptop Linux (pendiente de personas)
 - [x] Escenario de falla preparado por si algo sale mal durante la demo — tabla de Plan B en `documento/guia-demo-stand.md`
@@ -43,8 +43,8 @@ Usar este checklist antes de la **Clase 13** (ensayo) y volver a verificarlo ant
 - [x] Commits de todos los integrantes (no commits de una sola persona) — verificado con `git shortlog -sne --all` tras corregir `.mailmap`: 5 integrantes agrupados correctamente
 - [x] Código, scripts y configuraciones funcionando y documentados
 - [x] Capturas de pantalla o evidencias incluidas
-- [ ] Póster en formato editable + PDF — pendiente
-- [ ] Documento en PDF — pendiente
+- [x] Póster en formato editable + PDF
+- [x] Documento en PDF
 - [x] No hay archivos temporales, binarios innecesarios ni contraseñas hardcodeadas
 
 ## 👥 Presentación grupal
