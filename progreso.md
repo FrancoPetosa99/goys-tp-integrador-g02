@@ -56,6 +56,8 @@
 | 12/11 |  Fase 6: checklist de entrega con solo ítems verificados y corrección del `.mailmap` para los 5 integrantes | Isabella | docs(repo) + fix(repo) | 
 | 12/11 |  Fase 6: README final con estado real, Makefile, estructura y resultados medidos | Agustín | docs(repo) | 
 | 12/11 |  Fase 6: guía de demo de stand de 5 minutos con plan B | Sofía | docs(documento) | 
+| 15/11 |  Fase 6b: informe final (.docx + PDF, 7 páginas) con referencias y diagrama de arquitectura, redactado y revisado entre los cinco | Todo el grupo | docs(documento) | 
+| 15/11 |  Fase 6b: póster A1 (editable .pptx + PDF) con resultados medidos y QR al repositorio, diseñado entre los cinco | Todo el grupo | docs(poster) | 
 
 
 
