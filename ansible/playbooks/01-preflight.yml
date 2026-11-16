@@ -136,6 +136,27 @@
       ansible.builtin.debug:
         msg: "stack_arriba={{ stack_arriba }} (router_running={{ router_running.stdout_lines }})"
 
+    - name: "Firewall (stack arriba): regla DNAT de la VIP en la tabla nat del router"
+      ansible.builtin.command:
+        argv: [docker, exec, "{{ containers.router }}", iptables, -t, nat, -L, DBSCALE_DNAT, -n]
+      register: dnat_rule
+      changed_when: false
+      when: stack_arriba
+
+    - name: "Evidencia: regla DNAT del router"
+      ansible.builtin.debug:
+        var: dnat_rule
+      when: stack_arriba
+
+    - name: "La regla DNAT debe redirigir la VIP 10.20.1.100 al primario real"
+      ansible.builtin.assert:
+        that:
+          - "'10.20.1.100' in dnat_rule.stdout"
+          - "('to:' + ips.pg_primary + ':5432') in dnat_rule.stdout"
+        fail_msg: "No se encontró la regla DNAT de la VIP 10.20.1.100 -> {{ ips.pg_primary }}:5432 en DBSCALE_DNAT: {{ dnat_rule.stdout }}"
+        success_msg: "Regla DNAT OK: VIP 10.20.1.100 -> {{ ips.pg_primary }}:5432"
+      when: stack_arriba
+
     - name: "Ruteo (stack arriba): net-app -> net-db-primaria vía router, desde sc-api"
       ansible.builtin.command:
         argv: [docker, exec, "{{ containers.sc_api }}", nc, -zv, -w2, "{{ ips.pg_primary }}", "5432"]
