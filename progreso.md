@@ -58,6 +58,8 @@
 | 12/11 |  Fase 6: guía de demo de stand de 5 minutos con plan B | Sofía | docs(documento) | 
 | 15/11 |  Fase 6b: informe final (.docx + PDF, 7 páginas) con referencias y diagrama de arquitectura, redactado y revisado entre los cinco | Todo el grupo | docs(documento) | 
 | 15/11 |  Fase 6b: póster A1 (editable .pptx + PDF) con resultados medidos y QR al repositorio, diseñado entre los cinco | Todo el grupo | docs(poster) | 
+| 16/11 |  Fase 6c: el preflight de Ansible verifica la regla DNAT de la VIP en la tabla nat del router (tras la revisión del docente) | Agustín | feat(ansible) | 
+| 16/11 |  Fase 6c: limitaciones conocidas en el runbook (500 sin manejar si caen todas las réplicas con fallback desactivado; sin replication slots, RPO no medido) | Martín | docs(documento) + docs(progreso) | 
 
 
 
